@@ -1,0 +1,23 @@
+{{/* Workshop Image Shortcode */}}
+{{ $src := .Get "src" }}
+{{ $alt := .Get "alt" | default "Workshop Screenshot" }}
+{{ $caption := .Get "caption" }}
+{{ $class := .Get "class" | default "workshop-image" }}
+{{ $width := .Get "width" }}
+{{ $height := .Get "height" }}
+
+<div class="image-container">
+  <img 
+    src="{{ $src | relURL }}" 
+    alt="{{ $alt }}" 
+    class="{{ $class }}"
+    {{ with $width }}width="{{ . }}"{{ end }}
+    {{ with $height }}height="{{ . }}"{{ end }}
+    loading="lazy"
+  />
+  {{ with $caption }}
+  <div class="image-caption">
+    <i class="fas fa-info-circle"></i> {{ . }}
+  </div>
+  {{ end }}
+</div>

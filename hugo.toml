@@ -1,4 +1,4 @@
-baseURL = 'https://aurora.github.io/ECS_Advanced_Networking_Workshop/'
+baseURL = 'https://binh2423.github.io/ECS_Advanced_Networking.github.io/'
 languageCode = 'vi-vn'
 title = 'Workshop ECS Advanced Networking'
 theme = 'hugo-theme-learn'
@@ -9,7 +9,7 @@ home = [ "HTML", "RSS", "JSON"]
 
 [params]
   themeVariant = "workshop"
-  editURL = "https://github.com/aurora/ECS_Advanced_Networking_Workshop/edit/main/content"
+  editURL = "https://github.com/Binh2423/ECS_Advanced_Networking.github.io/edit/main/content"
   description = "Workshop thực hành ECS Advanced Networking - Service Discovery, Load Balancing và Security trên AWS"
   author = "AWS Workshop Team"
   showVisitedLinks = true
@@ -20,12 +20,20 @@ home = [ "HTML", "RSS", "JSON"]
   disableLanguageSwitchingButton = true
   highlightClientSide = true
   menushortcutsnewtab = true
+  
+  # Image optimization
+  [params.imageProcessing]
+    anchor = "smart"
+    bgColor = "#ffffff"
+    hint = "photo"
+    quality = 85
+    resampleFilter = "box"
 
 # Menu shortcuts
 [[menu.shortcuts]]
 name = "<i class='fab fa-github'></i> GitHub Repository"
 identifier = "GitHub Repo"
-url = "https://github.com/aurora/ECS_Advanced_Networking_Workshop"
+url = "https://github.com/Binh2423/ECS_Advanced_Networking.github.io"
 weight = 10
 
 [[menu.shortcuts]]
@@ -52,6 +60,11 @@ weight = 30
   [markup.goldmark]
     [markup.goldmark.renderer]
       unsafe = true
+    [markup.goldmark.extensions]
+      linkify = true
+      strikethrough = true
+      table = true
+      taskList = true
 
 # Search configuration
 [params.search]

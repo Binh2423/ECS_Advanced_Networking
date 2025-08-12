@@ -1,0 +1,22 @@
+{{/* Alert Shortcode */}}
+{{ $type := .Get "type" | default "info" }}
+{{ $icon := .Get "icon" }}
+{{ $title := .Get "title" }}
+
+{{ $iconMap := dict 
+  "info" "fas fa-info-circle"
+  "success" "fas fa-check-circle" 
+  "warning" "fas fa-exclamation-triangle"
+  "danger" "fas fa-times-circle"
+  "tip" "fas fa-lightbulb"
+  "aws" "fab fa-aws"
+}}
+
+{{ $defaultIcon := index $iconMap $type }}
+{{ $finalIcon := $icon | default $defaultIcon }}
+
+<div class="alert alert-{{ $type }}">
+  {{ with $finalIcon }}<i class="{{ . }}"></i> {{ end }}
+  {{ with $title }}<strong>{{ . }}:</strong> {{ end }}
+  {{ .Inner | markdownify }}
+</div>

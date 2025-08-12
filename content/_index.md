@@ -1,13 +1,17 @@
 ---
-title: "ECS Advanced Networking Workshop"
+title: "Workshop ECS Advanced Networking"
 date: "`r Sys.Date()`"
 weight: 1
 chapter: false
 ---
 
-# ECS Advanced Networking Workshop
+# Workshop ECS Advanced Networking
 
-Chào mừng bạn đến với **ECS Advanced Networking Workshop**! 🚀
+Chào mừng bạn đến với **Workshop ECS Advanced Networking**! 🚀
+
+{{< alert type="aws" title="Về Workshop" >}}
+Workshop này sẽ hướng dẫn bạn triển khai một hệ thống container hoàn chỉnh trên AWS ECS với các tính năng networking nâng cao.
+{{< /alert >}}
 
 ## Tổng quan Workshop
 
@@ -25,13 +29,11 @@ Workshop này sẽ hướng dẫn bạn triển khai một hệ thống containe
 
 ### Architecture Overview
 
+{{< workshop-image src="images/ecs-architecture.png" alt="ECS Advanced Networking Architecture" caption="Kiến trúc tổng quan của workshop - từ Internet đến ECS Services qua Load Balancer và Service Discovery" >}}
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Internet                              │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Internet Gateway                            │
 └─────────────────────┬───────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────┐
@@ -57,20 +59,20 @@ Workshop này sẽ hướng dẫn bạn triển khai một hệ thống containe
 
 ## Workshop Structure
 
-### 🏗️ [1. Thiết lập VPC và Networking](1-vpc-setup/)
+### 🏗️ [1. Thiết lập VPC và Networking](1-introduction/)
 - Tạo VPC với public/private subnets
 - Cấu hình Internet Gateway và NAT Gateway
 - Thiết lập Route Tables và Security Groups
 
-### 🐳 [2. Tạo ECS Cluster](2-ecs-cluster/)
-- Khởi tạo ECS Cluster với Fargate
-- Cấu hình IAM roles và permissions
-- Tạo task definitions đầu tiên
+### 🛠️ [2. Chuẩn bị môi trường](2-prerequisites/)
+- Kiểm tra prerequisites và tools
+- Cấu hình AWS CLI và permissions
+- Setup working environment
 
-### 🎯 [3. Triển khai ECS Services](3-ecs-services/)
+### 🐳 [3. Tạo ECS Cluster và Services](3-cluster-setup/)
+- Khởi tạo ECS Cluster với Fargate
 - Deploy containerized applications
 - Cấu hình service scaling và health checks
-- Quản lý container lifecycle
 
 ### 🔍 [4. Triển khai Service Discovery](4-service-discovery/)
 - Thiết lập AWS Cloud Map
@@ -136,7 +138,9 @@ Workshop này sử dụng các AWS services có tính phí:
 | CloudWatch Logs | $0.50/GB | Minimal |
 | **Total Estimated** | **$2-5** | **Complete Workshop** |
 
-⚠️ **Quan trọng:** Nhớ chạy cleanup script ở cuối workshop để tránh chi phí tiếp tục!
+{{< alert type="warning" title="Quan trọng" >}}
+Nhớ chạy cleanup script ở cuối workshop để tránh chi phí tiếp tục!
+{{< /alert >}}
 
 ## Workshop Timeline
 
@@ -176,7 +180,7 @@ aws configure set region us-east-1
 ```
 
 ### Bước 4: Start Workshop
-Bắt đầu với [Thiết lập VPC và Networking](1-vpc-setup/) →
+Bắt đầu với [Thiết lập VPC và Networking](1-introduction/) →
 
 ## Workshop Features
 
@@ -242,8 +246,10 @@ Sau workshop này, bạn có thể tiếp tục học:
 
 Hãy bắt đầu hành trình khám phá ECS Advanced Networking!
 
-**[Bắt đầu với VPC Setup →](1-vpc-setup/)**
+**[Bắt đầu với VPC Setup →](1-introduction/)**
 
 ---
 
-**💡 Pro Tip:** Bookmark trang này để dễ dàng navigate giữa các sections trong quá trình làm workshop!
+{{< alert type="tip" title="Pro Tip" >}}
+Bookmark trang này để dễ dàng navigate giữa các sections trong quá trình làm workshop!
+{{< /alert >}}

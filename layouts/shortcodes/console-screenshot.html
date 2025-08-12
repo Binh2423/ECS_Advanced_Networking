@@ -1,0 +1,19 @@
+{{/* Console Screenshot Shortcode */}}
+{{ $src := .Get "src" }}
+{{ $alt := .Get "alt" | default "AWS Console Screenshot" }}
+{{ $caption := .Get "caption" }}
+{{ $service := .Get "service" | default "AWS Console" }}
+
+<div class="image-container">
+  <img 
+    src="{{ $src | relURL }}" 
+    alt="{{ $alt }}" 
+    class="console-screenshot"
+    loading="lazy"
+  />
+  {{ with $caption }}
+  <div class="image-caption">
+    <i class="fab fa-aws"></i> <strong>{{ $service }}:</strong> {{ . }}
+  </div>
+  {{ end }}
+</div>
