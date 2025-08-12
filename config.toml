@@ -1,0 +1,64 @@
+# Change the default theme to be use when building the site with Hugo
+theme = "hugo-theme-learn"
+
+# For search functionality
+[outputs]
+home = [ "HTML", "RSS", "JSON"]
+
+[params]
+  # Change default color scheme with a variant one. Can be "red", "blue", "green".
+  themeVariant = "workshop"
+  # Git hub repo link
+  editURL = "https://github.com/Binh2423/ECS_Advanced_Networking_Workshop/edit/main/content"
+  description = "Workshop thực hành ECS Advanced Networking - Service Discovery, Load Balancing và Security"
+  author = "AWS Study Group Vietnam"
+  showVisitedLinks = true
+  disableBreadcrumb = false
+  disableNextPrev = false
+  
+[Languages]
+[Languages.en]
+title = "ECS Advanced Networking Workshop"
+weight = 1
+languageName = "English"
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fab fa-github'></i> GitHub Repository"
+identifier = "GitHub Repo"
+url = "https://github.com/Binh2423/ECS_Advanced_Networking_Workshop"
+weight = 10
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fab fa-facebook'></i> AWS Study Group"
+identifier = "AWS Study Group FB"
+url = "https://www.facebook.com/groups/awsstudygroupfcj/"
+weight = 20
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fas fa-cloud'></i> AWS Console"
+identifier = "AWS Console"
+url = "https://console.aws.amazon.com/"
+weight = 30
+
+[Languages.vi]
+title = "Workshop ECS Advanced Networking"
+weight = 2
+languageName = "Tiếng Việt"
+
+[[Languages.vi.menu.shortcuts]]
+name = "<i class='fab fa-github'></i> GitHub Repository"
+identifier = "GitHub Repo"
+url = "https://github.com/Binh2423/ECS_Advanced_Networking_Workshop"
+weight = 10
+
+[[Languages.vi.menu.shortcuts]]
+name = "<i class='fab fa-facebook'></i> AWS Study Group"
+identifier = "AWS Study Group FB"
+url = "https://www.facebook.com/groups/awsstudygroupfcj/"
+weight = 20
+
+[[Languages.vi.menu.shortcuts]]
+name = "<i class='fas fa-cloud'></i> AWS Console"
+identifier = "AWS Console"
+url = "https://console.aws.amazon.com/"
+weight = 30
