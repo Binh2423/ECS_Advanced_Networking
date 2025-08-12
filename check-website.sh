@@ -4,7 +4,7 @@ echo "🌐 Checking Workshop Website Status..."
 echo "======================================"
 
 # Website URLs to check
-GITHUB_PAGES_URL="https://binh2423.github.io/ECS_Advanced_Networking.github.io/"
+GITHUB_PAGES_URL="https://binh2423.github.io/ECS_Advanced_Networking/"
 LOCAL_URL="http://localhost:1313"
 
 echo "📍 GitHub Pages URL: $GITHUB_PAGES_URL"
@@ -48,8 +48,8 @@ fi
 # Check GitHub Actions status
 echo "🔄 GitHub Actions Status:"
 echo "========================="
-echo "Repository: https://github.com/Binh2423/ECS_Advanced_Networking.github.io"
-echo "Actions: https://github.com/Binh2423/ECS_Advanced_Networking.github.io/actions"
+echo "Repository: https://github.com/Binh2423/ECS_Advanced_Networking"
+echo "Actions: https://github.com/Binh2423/ECS_Advanced_Networking/actions"
 echo ""
 
 # Show recent commits

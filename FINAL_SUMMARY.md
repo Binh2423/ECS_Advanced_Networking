@@ -5,8 +5,8 @@
 ### 🧹 Major Cleanup Completed
 
 #### **Repository & Naming:**
-- ✅ Đã thay đổi tất cả references từ "Binh2423" → "ECS_Advanced_Networking_Workshop"
-- ✅ Cập nhật baseURL và GitHub links cho đúng repository
+- ✅ Đã cập nhật tất cả GitHub URLs thành: `https://github.com/Binh2423/ECS_Advanced_Networking`
+- ✅ Cập nhật baseURL thành: `https://binh2423.github.io/ECS_Advanced_Networking/`
 - ✅ Sửa tất cả hardcoded URLs trong config và content
 
 #### **Content Optimization:**
@@ -24,15 +24,15 @@
 ## 🌐 Website Status
 
 ### **Live URLs:**
-- **GitHub Pages:** https://binh2423.github.io/ECS_Advanced_Networking.github.io/
-- **Repository:** https://github.com/Binh2423/ECS_Advanced_Networking.github.io
+- **GitHub Pages:** https://binh2423.github.io/ECS_Advanced_Networking/
+- **Repository:** https://github.com/Binh2423/ECS_Advanced_Networking
 
 ### **Deployment Status:**
 - ✅ **GitHub Actions:** Configured và ready
 - ✅ **Hugo Build:** Successful (25 pages, 96 static files)
 - ✅ **Content Structure:** 9 main pages + sub-pages
 - ✅ **Images:** 19 AWS Console screenshots
-- ⏳ **GitHub Pages:** Deploying (may take 5-10 minutes)
+- ✅ **GitHub Pages:** Ready for deployment
 
 ## 📊 Workshop Statistics
 
@@ -101,14 +101,14 @@
 ### **Option 1: Online (Recommended)**
 ```bash
 # Simply visit the website
-https://binh2423.github.io/ECS_Advanced_Networking.github.io/
+https://binh2423.github.io/ECS_Advanced_Networking/
 ```
 
 ### **Option 2: Local Development**
 ```bash
 # Clone repository
-git clone https://github.com/Binh2423/ECS_Advanced_Networking.github.io.git
-cd ECS_Advanced_Networking.github.io
+git clone https://github.com/Binh2423/ECS_Advanced_Networking.git
+cd ECS_Advanced_Networking
 
 # Start local server
 ./serve-local.sh
@@ -192,7 +192,7 @@ Workshop hiện đã hoàn toàn sẵn sàng cho production use:
 
 ## 🚀 Next Steps for Users
 
-1. **Visit Website:** https://binh2423.github.io/ECS_Advanced_Networking.github.io/
+1. **Visit Website:** https://binh2423.github.io/ECS_Advanced_Networking/
 2. **Check Prerequisites** và setup AWS environment
 3. **Follow Step-by-step** through 8 workshop sections
 4. **Use Screenshots** để verify AWS Console actions
