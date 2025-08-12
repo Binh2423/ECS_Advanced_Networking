@@ -1,527 +1,687 @@
 ---
-title : "Clean up Resources"
+title : "Cleanup Resources"
 date : "`r Sys.Date()`"
 weight : 8
 chapter : false
 pre : " <b> 8. </b> "
 ---
 
-# Clean up Resources
+# Cleanup Resources
 
-> **Important**: This section will delete all resources created during the workshop. Make sure you have completed all exercises and saved any important configurations before proceeding.
+## Tại sao Cleanup quan trọng?
 
-To avoid ongoing charges, it's crucial to clean up all AWS resources created during this workshop. We'll delete resources in the reverse order of creation to handle dependencies properly.
+Giống như dọn dẹp nhà cửa, cleanup AWS resources giúp bạn:
+- **Tiết kiệm chi phí:** Tránh charges không cần thiết
+- **Bảo mật:** Xóa resources không sử dụng
+- **Tổ chức:** Giữ account sạch sẽ
 
-## Step 1: Load Environment Variables
+**⚠️ Cảnh báo:** Cleanup sẽ xóa TẤT CẢ resources đã tạo trong workshop. Đảm bảo bạn đã backup mọi thứ cần thiết!
 
-First, load all the environment variables from the workshop:
+## Cleanup Strategy
+
+```
+Applications → Load Balancers → ECS → Networking → IAM → Monitoring
+     ↓              ↓           ↓        ↓         ↓        ↓
+  Stop Tasks    Delete ALB   Delete    Delete    Delete   Delete
+                Delete TGs   Services   VPC      Roles    Logs
+```
+
+## Bước 1: Chuẩn bị Cleanup
+
+### 1.1 Load environment và backup
 
 ```bash
-# Load environment variables
-source workshop-resources.env
+cd ~/ecs-workshop
+source workshop-env.sh
 
-# Verify variables are loaded
+# Backup environment variables
+cp workshop-env.sh workshop-env-backup.sh
+echo "✅ Environment variables đã được backup"
+
+# Tạo cleanup log
+echo "🗑️ Starting cleanup at $(date)" > cleanup.log
+```
+
+### 1.2 Liệt kê resources sẽ xóa
+
+```bash
+echo "📋 Resources sẽ được xóa:"
+echo "========================="
+
+echo "ECS Services:"
+aws ecs list-services --cluster $CLUSTER_NAME --query 'serviceArns' --output table
+
+echo "Load Balancers:"
+aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN --query 'LoadBalancers[].LoadBalancerName' --output table
+
+echo "Target Groups:"
+aws elbv2 describe-target-groups --target-group-arns $FRONTEND_TG_ARN $API_TG_ARN --query 'TargetGroups[].TargetGroupName' --output table
+
+echo "Security Groups:"
+aws ec2 describe-security-groups --group-ids $ALB_SG $ECS_SG $DB_SG $MGMT_SG --query 'SecurityGroups[].GroupName' --output table 2>/dev/null || echo "Some security groups not found"
+
+echo "VPC Resources:"
 echo "VPC ID: $VPC_ID"
-echo "Cluster Name: $CLUSTER_NAME"
+echo "Subnets: $PUBLIC_SUBNET_1, $PUBLIC_SUBNET_2, $PRIVATE_SUBNET_1, $PRIVATE_SUBNET_2"
 ```
 
-## Step 2: Delete ECS Services
+### 1.3 Xác nhận cleanup
 
-### 2.1 Scale Down Services
 ```bash
-# Scale down all services to 0
-aws ecs update-service \
-    --cluster $CLUSTER_NAME \
-    --service web-service \
-    --desired-count 0
+echo "⚠️  CẢNH BÁO: Bạn sắp xóa TẤT CẢ workshop resources!"
+echo "Điều này sẽ:"
+echo "- Xóa tất cả ECS services và tasks"
+echo "- Xóa Load Balancer và Target Groups"
+echo "- Xóa VPC và tất cả network resources"
+echo "- Xóa IAM roles và policies"
+echo "- Xóa CloudWatch logs và alarms"
+echo ""
+read -p "Bạn có chắc chắn muốn tiếp tục? (yes/no): " confirm
 
-aws ecs update-service \
-    --cluster $CLUSTER_NAME \
-    --service api-service \
-    --desired-count 0
-
-aws ecs update-service \
-    --cluster $CLUSTER_NAME \
-    --service db-service \
-    --desired-count 0
-
-echo "Services scaled down to 0. Waiting for tasks to stop..."
-
-# Wait for services to stabilize
-aws ecs wait services-stable \
-    --cluster $CLUSTER_NAME \
-    --services web-service api-service db-service
-```
-
-### 2.2 Delete ECS Services
-```bash
-# Delete ECS services
-aws ecs delete-service \
-    --cluster $CLUSTER_NAME \
-    --service web-service \
-    --force
-
-aws ecs delete-service \
-    --cluster $CLUSTER_NAME \
-    --service api-service \
-    --force
-
-aws ecs delete-service \
-    --cluster $CLUSTER_NAME \
-    --service db-service \
-    --force
-
-echo "ECS services deleted"
-```
-
-### 2.3 Stop Any Running Tasks
-```bash
-# List and stop any remaining tasks
-RUNNING_TASKS=$(aws ecs list-tasks \
-    --cluster $CLUSTER_NAME \
-    --desired-status RUNNING \
-    --query 'taskArns[]' \
-    --output text)
-
-if [ ! -z "$RUNNING_TASKS" ]; then
-    echo "Stopping remaining tasks..."
-    for task in $RUNNING_TASKS; do
-        aws ecs stop-task --cluster $CLUSTER_NAME --task $task
-    done
-    
-    # Wait for tasks to stop
-    aws ecs wait tasks-stopped --cluster $CLUSTER_NAME --tasks $RUNNING_TASKS
+if [ "$confirm" != "yes" ]; then
+    echo "❌ Cleanup đã bị hủy"
+    exit 1
 fi
+
+echo "✅ Bắt đầu cleanup..." | tee -a cleanup.log
 ```
 
-## Step 3: Delete Load Balancer Resources
+## Bước 2: Cleanup ECS Resources
 
-### 3.1 Delete Target Groups
+### 2.1 Stop và Delete ECS Services
+
 ```bash
-# List and delete target groups
-TARGET_GROUPS=$(aws elbv2 describe-target-groups \
-    --query 'TargetGroups[?VpcId==`'$VPC_ID'`].TargetGroupArn' \
-    --output text)
+echo "🛑 Stopping ECS Services..." | tee -a cleanup.log
 
-if [ ! -z "$TARGET_GROUPS" ]; then
-    echo "Deleting target groups..."
-    for tg in $TARGET_GROUPS; do
-        aws elbv2 delete-target-group --target-group-arn $tg
-    done
-fi
+# Scale down services to 0
+services=("frontend-service" "api-service" "db-service")
+
+for service in "${services[@]}"; do
+    echo "Scaling down $service to 0..." | tee -a cleanup.log
+    aws ecs update-service \
+        --cluster $CLUSTER_NAME \
+        --service $service \
+        --desired-count 0 \
+        --no-cli-pager 2>/dev/null || echo "Service $service not found"
+done
+
+# Wait for services to scale down
+echo "⏳ Waiting for services to scale down..." | tee -a cleanup.log
+sleep 30
+
+# Delete services
+for service in "${services[@]}"; do
+    echo "Deleting $service..." | tee -a cleanup.log
+    aws ecs delete-service \
+        --cluster $CLUSTER_NAME \
+        --service $service \
+        --force \
+        --no-cli-pager 2>/dev/null || echo "Service $service not found"
+done
+
+echo "✅ ECS Services cleanup completed" | tee -a cleanup.log
 ```
 
-### 3.2 Delete Load Balancers
-```bash
-# List and delete load balancers in the VPC
-LOAD_BALANCERS=$(aws elbv2 describe-load-balancers \
-    --query 'LoadBalancers[?VpcId==`'$VPC_ID'`].LoadBalancerArn' \
-    --output text)
+### 2.2 Delete ECS Cluster
 
-if [ ! -z "$LOAD_BALANCERS" ]; then
-    echo "Deleting load balancers..."
-    for lb in $LOAD_BALANCERS; do
-        aws elbv2 delete-load-balancer --load-balancer-arn $lb
-    done
+```bash
+echo "🗑️ Deleting ECS Cluster..." | tee -a cleanup.log
+
+# Wait for services to be deleted
+echo "⏳ Waiting for services to be fully deleted..."
+sleep 60
+
+# Delete cluster
+aws ecs delete-cluster --cluster $CLUSTER_NAME --no-cli-pager 2>/dev/null || echo "Cluster not found"
+
+echo "✅ ECS Cluster deleted" | tee -a cleanup.log
+```
+
+### 2.3 Deregister Task Definitions
+
+```bash
+echo "📋 Deregistering Task Definitions..." | tee -a cleanup.log
+
+# List all task definition families
+families=("frontend-app" "api-app" "db-app" "frontend-secure" "api-enhanced" "admin-app" "dns-test")
+
+for family in "${families[@]}"; do
+    echo "Deregistering $family task definitions..." | tee -a cleanup.log
     
-    # Wait for load balancers to be deleted
-    echo "Waiting for load balancers to be deleted..."
+    # Get all revisions for this family
+    revisions=$(aws ecs list-task-definitions --family-prefix $family --query 'taskDefinitionArns' --output text 2>/dev/null)
+    
+    for revision in $revisions; do
+        if [ ! -z "$revision" ]; then
+            aws ecs deregister-task-definition --task-definition $revision --no-cli-pager 2>/dev/null || echo "Task definition $revision not found"
+        fi
+    done
+done
+
+echo "✅ Task Definitions cleanup completed" | tee -a cleanup.log
+```
+
+## Bước 3: Cleanup Load Balancer Resources
+
+### 3.1 Delete Load Balancer
+
+```bash
+echo "⚖️ Deleting Load Balancer..." | tee -a cleanup.log
+
+# Delete ALB
+if [ ! -z "$ALB_ARN" ]; then
+    aws elbv2 delete-load-balancer --load-balancer-arn $ALB_ARN --no-cli-pager 2>/dev/null || echo "ALB not found"
+    echo "⏳ Waiting for ALB to be deleted..."
     sleep 60
 fi
+
+echo "✅ Load Balancer deleted" | tee -a cleanup.log
 ```
 
-## Step 4: Delete Service Discovery Resources
+### 3.2 Delete Target Groups
 
-### 4.1 Deregister Service Instances
 ```bash
-# Deregister instances from service discovery (if any manual registrations exist)
-if [ ! -z "$WEB_SERVICE_ID" ]; then
-    INSTANCES=$(aws servicediscovery list-instances \
-        --service-id $WEB_SERVICE_ID \
-        --query 'Instances[].Id' \
-        --output text)
-    
-    for instance in $INSTANCES; do
-        aws servicediscovery deregister-instance \
-            --service-id $WEB_SERVICE_ID \
-            --instance-id $instance
-    done
-fi
+echo "🎯 Deleting Target Groups..." | tee -a cleanup.log
+
+target_groups=("$FRONTEND_TG_ARN" "$API_TG_ARN")
+
+for tg in "${target_groups[@]}"; do
+    if [ ! -z "$tg" ]; then
+        echo "Deleting target group $tg..." | tee -a cleanup.log
+        aws elbv2 delete-target-group --target-group-arn $tg --no-cli-pager 2>/dev/null || echo "Target group not found"
+    fi
+done
+
+echo "✅ Target Groups deleted" | tee -a cleanup.log
 ```
 
-### 4.2 Delete Service Discovery Services
+## Bước 4: Cleanup Service Discovery
+
+### 4.1 Delete Service Discovery Services
+
 ```bash
-# Delete service discovery services
-if [ ! -z "$WEB_SERVICE_ID" ]; then
-    aws servicediscovery delete-service --id $WEB_SERVICE_ID
-    echo "Web service discovery deleted"
-fi
+echo "🔍 Deleting Service Discovery..." | tee -a cleanup.log
 
-if [ ! -z "$API_SERVICE_ID" ]; then
-    aws servicediscovery delete-service --id $API_SERVICE_ID
-    echo "API service discovery deleted"
-fi
+service_ids=("$FRONTEND_SERVICE_ID" "$API_SERVICE_ID" "$DB_SERVICE_ID")
 
-if [ ! -z "$DB_SERVICE_ID" ]; then
-    aws servicediscovery delete-service --id $DB_SERVICE_ID
-    echo "Database service discovery deleted"
-fi
-```
+for service_id in "${service_ids[@]}"; do
+    if [ ! -z "$service_id" ]; then
+        echo "Deleting service discovery service $service_id..." | tee -a cleanup.log
+        aws servicediscovery delete-service --id $service_id --no-cli-pager 2>/dev/null || echo "Service discovery service not found"
+    fi
+done
 
-### 4.3 Delete Service Discovery Namespace
-```bash
-# Delete the namespace
+# Delete namespace
 if [ ! -z "$NAMESPACE_ID" ]; then
-    aws servicediscovery delete-namespace --id $NAMESPACE_ID
-    echo "Service discovery namespace deleted"
+    echo "Deleting namespace $NAMESPACE_ID..." | tee -a cleanup.log
+    aws servicediscovery delete-namespace --id $NAMESPACE_ID --no-cli-pager 2>/dev/null || echo "Namespace not found"
 fi
+
+echo "✅ Service Discovery cleanup completed" | tee -a cleanup.log
 ```
 
-## Step 5: Delete ECS Cluster
+## Bước 5: Cleanup Network Resources
+
+### 5.1 Delete Security Groups
 
 ```bash
-# Delete ECS cluster
-aws ecs delete-cluster --cluster $CLUSTER_NAME
-echo "ECS cluster deleted"
-```
+echo "🔒 Deleting Security Groups..." | tee -a cleanup.log
 
-## Step 6: Delete Task Definitions
+# Delete in reverse dependency order
+security_groups=("$MGMT_SG" "$DB_SG" "$ECS_SG" "$ALB_SG")
 
-```bash
-# Deregister task definitions
-TASK_FAMILIES=("web-app" "api-app" "db-app" "dns-test")
-
-for family in "${TASK_FAMILIES[@]}"; do
-    # Get all revisions for the family
-    REVISIONS=$(aws ecs list-task-definitions \
-        --family-prefix $family \
-        --status ACTIVE \
-        --query 'taskDefinitionArns[]' \
-        --output text)
-    
-    # Deregister each revision
-    for revision in $REVISIONS; do
-        aws ecs deregister-task-definition --task-definition $revision
-        echo "Deregistered task definition: $revision"
-    done
-done
-```
-
-## Step 7: Delete CloudWatch Log Groups
-
-```bash
-# Delete CloudWatch log groups
-LOG_GROUPS=("/ecs/web-app" "/ecs/api-app" "/ecs/db-app" "/ecs/dns-test")
-
-for log_group in "${LOG_GROUPS[@]}"; do
-    aws logs delete-log-group --log-group-name $log_group 2>/dev/null || echo "Log group $log_group not found or already deleted"
+for sg in "${security_groups[@]}"; do
+    if [ ! -z "$sg" ]; then
+        echo "Deleting security group $sg..." | tee -a cleanup.log
+        
+        # Remove all rules first
+        aws ec2 describe-security-groups --group-ids $sg --query 'SecurityGroups[0].IpPermissions' --output json > /tmp/sg_rules.json 2>/dev/null
+        if [ -s /tmp/sg_rules.json ] && [ "$(cat /tmp/sg_rules.json)" != "null" ]; then
+            aws ec2 revoke-security-group-ingress --group-id $sg --ip-permissions file:///tmp/sg_rules.json --no-cli-pager 2>/dev/null || echo "No ingress rules to remove"
+        fi
+        
+        aws ec2 describe-security-groups --group-ids $sg --query 'SecurityGroups[0].IpPermissionsEgress' --output json > /tmp/sg_egress_rules.json 2>/dev/null
+        if [ -s /tmp/sg_egress_rules.json ] && [ "$(cat /tmp/sg_egress_rules.json)" != "null" ]; then
+            aws ec2 revoke-security-group-egress --group-id $sg --ip-permissions file:///tmp/sg_egress_rules.json --no-cli-pager 2>/dev/null || echo "No egress rules to remove"
+        fi
+        
+        # Delete security group
+        aws ec2 delete-security-group --group-id $sg --no-cli-pager 2>/dev/null || echo "Security group $sg not found"
+    fi
 done
 
-echo "CloudWatch log groups deleted"
+echo "✅ Security Groups deleted" | tee -a cleanup.log
 ```
 
-## Step 8: Delete VPC Endpoints (if created)
+### 5.2 Delete VPC Flow Logs
 
 ```bash
-# Delete VPC endpoints
-VPC_ENDPOINTS=$(aws ec2 describe-vpc-endpoints \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query 'VpcEndpoints[].VpcEndpointId' \
-    --output text)
+echo "📊 Deleting VPC Flow Logs..." | tee -a cleanup.log
 
-if [ ! -z "$VPC_ENDPOINTS" ]; then
-    echo "Deleting VPC endpoints..."
-    for endpoint in $VPC_ENDPOINTS; do
-        aws ec2 delete-vpc-endpoint --vpc-endpoint-id $endpoint
-    done
-fi
+# Get flow log IDs
+flow_log_ids=$(aws ec2 describe-flow-logs --filter Name=resource-id,Values=$VPC_ID --query 'FlowLogs[].FlowLogId' --output text 2>/dev/null)
+
+for flow_log_id in $flow_log_ids; do
+    if [ ! -z "$flow_log_id" ]; then
+        echo "Deleting flow log $flow_log_id..." | tee -a cleanup.log
+        aws ec2 delete-flow-logs --flow-log-ids $flow_log_id --no-cli-pager 2>/dev/null || echo "Flow log not found"
+    fi
+done
+
+echo "✅ VPC Flow Logs deleted" | tee -a cleanup.log
 ```
 
-## Step 9: Delete NAT Gateways
+### 5.3 Delete VPC and Subnets
 
 ```bash
-# Delete NAT Gateways
-if [ ! -z "$NAT_GW_1" ]; then
-    aws ec2 delete-nat-gateway --nat-gateway-id $NAT_GW_1
-    echo "NAT Gateway 1 deletion initiated"
-fi
+echo "🌐 Deleting VPC Resources..." | tee -a cleanup.log
 
-if [ ! -z "$NAT_GW_2" ]; then
-    aws ec2 delete-nat-gateway --nat-gateway-id $NAT_GW_2
-    echo "NAT Gateway 2 deletion initiated"
-fi
+# Delete NAT Gateways first
+nat_gateways=$(aws ec2 describe-nat-gateways --filter Name=vpc-id,Values=$VPC_ID --query 'NatGateways[].NatGatewayId' --output text 2>/dev/null)
+for nat_gw in $nat_gateways; do
+    if [ ! -z "$nat_gw" ]; then
+        echo "Deleting NAT Gateway $nat_gw..." | tee -a cleanup.log
+        aws ec2 delete-nat-gateway --nat-gateway-id $nat_gw --no-cli-pager 2>/dev/null || echo "NAT Gateway not found"
+    fi
+done
 
 # Wait for NAT Gateways to be deleted
-if [ ! -z "$NAT_GW_1" ] || [ ! -z "$NAT_GW_2" ]; then
-    echo "Waiting for NAT Gateways to be deleted (this may take several minutes)..."
+if [ ! -z "$nat_gateways" ]; then
+    echo "⏳ Waiting for NAT Gateways to be deleted..."
     sleep 120
 fi
-```
 
-## Step 10: Release Elastic IPs
-
-```bash
-# Get and release Elastic IPs associated with NAT Gateways
-EIP_ALLOCATIONS=$(aws ec2 describe-addresses \
-    --filters "Name=domain,Values=vpc" \
-    --query 'Addresses[?AssociationId==null].AllocationId' \
-    --output text)
-
-if [ ! -z "$EIP_ALLOCATIONS" ]; then
-    echo "Releasing Elastic IPs..."
-    for allocation in $EIP_ALLOCATIONS; do
-        aws ec2 release-address --allocation-id $allocation
-        echo "Released EIP: $allocation"
-    done
+# Delete Internet Gateway
+igw_id=$(aws ec2 describe-internet-gateways --filters Name=attachment.vpc-id,Values=$VPC_ID --query 'InternetGateways[0].InternetGatewayId' --output text 2>/dev/null)
+if [ "$igw_id" != "None" ] && [ ! -z "$igw_id" ]; then
+    echo "Detaching and deleting Internet Gateway $igw_id..." | tee -a cleanup.log
+    aws ec2 detach-internet-gateway --internet-gateway-id $igw_id --vpc-id $VPC_ID --no-cli-pager 2>/dev/null || echo "IGW not attached"
+    aws ec2 delete-internet-gateway --internet-gateway-id $igw_id --no-cli-pager 2>/dev/null || echo "IGW not found"
 fi
-```
 
-## Step 11: Delete Security Groups
+# Delete Route Tables (except main)
+route_tables=$(aws ec2 describe-route-tables --filters Name=vpc-id,Values=$VPC_ID --query 'RouteTables[?Associations[0].Main!=`true`].RouteTableId' --output text 2>/dev/null)
+for rt in $route_tables; do
+    if [ ! -z "$rt" ]; then
+        echo "Deleting route table $rt..." | tee -a cleanup.log
+        aws ec2 delete-route-table --route-table-id $rt --no-cli-pager 2>/dev/null || echo "Route table not found"
+    fi
+done
 
-```bash
-# Delete custom security groups (default security group cannot be deleted)
-SECURITY_GROUPS=$(aws ec2 describe-security-groups \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query 'SecurityGroups[?GroupName!=`default`].GroupId' \
-    --output text)
+# Delete Subnets
+subnets=("$PUBLIC_SUBNET_1" "$PUBLIC_SUBNET_2" "$PRIVATE_SUBNET_1" "$PRIVATE_SUBNET_2")
+for subnet in "${subnets[@]}"; do
+    if [ ! -z "$subnet" ]; then
+        echo "Deleting subnet $subnet..." | tee -a cleanup.log
+        aws ec2 delete-subnet --subnet-id $subnet --no-cli-pager 2>/dev/null || echo "Subnet not found"
+    fi
+done
 
-if [ ! -z "$SECURITY_GROUPS" ]; then
-    echo "Deleting security groups..."
-    for sg in $SECURITY_GROUPS; do
-        aws ec2 delete-security-group --group-id $sg
-        echo "Deleted security group: $sg"
-    done
-fi
-```
-
-## Step 12: Delete Route Tables and Routes
-
-```bash
-# Get custom route tables (not main route table)
-ROUTE_TABLES=$(aws ec2 describe-route-tables \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query 'RouteTables[?Associations[0].Main!=`true`].RouteTableId' \
-    --output text)
-
-if [ ! -z "$ROUTE_TABLES" ]; then
-    echo "Deleting route tables..."
-    for rt in $ROUTE_TABLES; do
-        # Disassociate from subnets first
-        ASSOCIATIONS=$(aws ec2 describe-route-tables \
-            --route-table-ids $rt \
-            --query 'RouteTables[0].Associations[?Main!=`true`].RouteTableAssociationId' \
-            --output text)
-        
-        for assoc in $ASSOCIATIONS; do
-            aws ec2 disassociate-route-table --association-id $assoc
-        done
-        
-        # Delete the route table
-        aws ec2 delete-route-table --route-table-id $rt
-        echo "Deleted route table: $rt"
-    done
-fi
-```
-
-## Step 13: Detach and Delete Internet Gateway
-
-```bash
-# Detach and delete Internet Gateway
-if [ ! -z "$IGW_ID" ]; then
-    aws ec2 detach-internet-gateway --internet-gateway-id $IGW_ID --vpc-id $VPC_ID
-    aws ec2 delete-internet-gateway --internet-gateway-id $IGW_ID
-    echo "Internet Gateway deleted: $IGW_ID"
-fi
-```
-
-## Step 14: Delete Subnets
-
-```bash
-# Delete subnets
-SUBNETS=$(aws ec2 describe-subnets \
-    --filters "Name=vpc-id,Values=$VPC_ID" \
-    --query 'Subnets[].SubnetId' \
-    --output text)
-
-if [ ! -z "$SUBNETS" ]; then
-    echo "Deleting subnets..."
-    for subnet in $SUBNETS; do
-        aws ec2 delete-subnet --subnet-id $subnet
-        echo "Deleted subnet: $subnet"
-    done
-fi
-```
-
-## Step 15: Delete VPC
-
-```bash
 # Delete VPC
 if [ ! -z "$VPC_ID" ]; then
-    aws ec2 delete-vpc --vpc-id $VPC_ID
-    echo "VPC deleted: $VPC_ID"
+    echo "Deleting VPC $VPC_ID..." | tee -a cleanup.log
+    aws ec2 delete-vpc --vpc-id $VPC_ID --no-cli-pager 2>/dev/null || echo "VPC not found"
 fi
+
+echo "✅ VPC Resources deleted" | tee -a cleanup.log
 ```
 
-## Step 16: Delete IAM Roles and Policies
+## Bước 6: Cleanup IAM Resources
+
+### 6.1 Delete IAM Roles và Policies
 
 ```bash
-# Delete custom IAM policy
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-POLICY_ARN="arn:aws:iam::$ACCOUNT_ID:policy/ECSTaskCustomPolicy"
+echo "👤 Deleting IAM Resources..." | tee -a cleanup.log
 
-# Detach policy from role
-aws iam detach-role-policy \
-    --role-name ecsTaskRole \
-    --policy-arn $POLICY_ARN 2>/dev/null || echo "Policy already detached or not found"
+# Delete custom policies
+custom_policies=("ECSWorkshopTaskPolicy")
+for policy in "${custom_policies[@]}"; do
+    policy_arn="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/$policy"
+    echo "Deleting policy $policy..." | tee -a cleanup.log
+    
+    # Detach from roles first
+    attached_roles=$(aws iam list-entities-for-policy --policy-arn $policy_arn --query 'PolicyRoles[].RoleName' --output text 2>/dev/null)
+    for role in $attached_roles; do
+        aws iam detach-role-policy --role-name $role --policy-arn $policy_arn --no-cli-pager 2>/dev/null || echo "Policy not attached to role"
+    done
+    
+    # Delete policy
+    aws iam delete-policy --policy-arn $policy_arn --no-cli-pager 2>/dev/null || echo "Policy not found"
+done
 
-# Delete custom policy
-aws iam delete-policy --policy-arn $POLICY_ARN 2>/dev/null || echo "Custom policy not found or already deleted"
+# Delete custom roles
+custom_roles=("ecsEnhancedTaskRole" "flowlogsRole")
+for role in "${custom_roles[@]}"; do
+    echo "Deleting role $role..." | tee -a cleanup.log
+    
+    # Detach managed policies
+    attached_policies=$(aws iam list-attached-role-policies --role-name $role --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null)
+    for policy_arn in $attached_policies; do
+        aws iam detach-role-policy --role-name $role --policy-arn $policy_arn --no-cli-pager 2>/dev/null || echo "Policy not attached"
+    done
+    
+    # Delete role
+    aws iam delete-role --role-name $role --no-cli-pager 2>/dev/null || echo "Role not found"
+done
 
-# Detach AWS managed policies from roles
-aws iam detach-role-policy \
-    --role-name ecsTaskExecutionRole \
-    --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy 2>/dev/null || echo "Policy already detached"
-
-# Delete IAM roles
-aws iam delete-role --role-name ecsTaskExecutionRole 2>/dev/null || echo "ecsTaskExecutionRole not found or already deleted"
-aws iam delete-role --role-name ecsTaskRole 2>/dev/null || echo "ecsTaskRole not found or already deleted"
-
-echo "IAM roles and policies cleaned up"
+echo "✅ IAM Resources deleted" | tee -a cleanup.log
 ```
 
-## Step 17: Clean Up Local Files
+## Bước 7: Cleanup Monitoring Resources
+
+### 7.1 Delete CloudWatch Resources
 
 ```bash
-# Remove local files created during the workshop
-rm -f workshop-resources.env
-rm -f ecs-task-execution-trust-policy.json
-rm -f ecs-task-policy.json
-rm -f web-task-definition.json
-rm -f api-task-definition.json
-rm -f db-task-definition.json
-rm -f test-task-definition.json
+echo "📊 Deleting CloudWatch Resources..." | tee -a cleanup.log
 
-echo "Local files cleaned up"
+# Delete Dashboards
+dashboards=("ECS-Workshop-Dashboard" "ECS-Network-Dashboard")
+for dashboard in "${dashboards[@]}"; do
+    echo "Deleting dashboard $dashboard..." | tee -a cleanup.log
+    aws cloudwatch delete-dashboards --dashboard-names $dashboard --no-cli-pager 2>/dev/null || echo "Dashboard not found"
+done
+
+# Delete Alarms
+alarms=("ECS-Frontend-High-CPU" "ECS-Frontend-High-Memory" "ECS-Frontend-Low-Task-Count" "ALB-High-4XX-Error-Rate" "ALB-High-Response-Time" "ALB-Unhealthy-Targets" "ECS-High-Error-Rate" "ECS-High-Network-Traffic")
+for alarm in "${alarms[@]}"; do
+    echo "Deleting alarm $alarm..." | tee -a cleanup.log
+    aws cloudwatch delete-alarms --alarm-names $alarm --no-cli-pager 2>/dev/null || echo "Alarm not found"
+done
+
+# Delete Log Groups
+log_groups=("/ecs/frontend" "/ecs/api" "/ecs/database" "/ecs/application-logs" "/ecs/error-logs" "/ecs/access-logs" "/ecs/api-enhanced" "/ecs/admin-app" "/ecs/dns-test" "/aws/vpc/flowlogs")
+for log_group in "${log_groups[@]}"; do
+    echo "Deleting log group $log_group..." | tee -a cleanup.log
+    aws logs delete-log-group --log-group-name $log_group --no-cli-pager 2>/dev/null || echo "Log group not found"
+done
+
+echo "✅ CloudWatch Resources deleted" | tee -a cleanup.log
 ```
 
-## Step 18: Verification
+### 7.2 Delete SNS Topics
 
-### 18.1 Verify Resource Deletion
 ```bash
-# Verify VPC is deleted
-aws ec2 describe-vpcs --vpc-ids $VPC_ID 2>/dev/null || echo "VPC successfully deleted"
+echo "📧 Deleting SNS Topics..." | tee -a cleanup.log
 
-# Verify ECS cluster is deleted
-aws ecs describe-clusters --clusters $CLUSTER_NAME 2>/dev/null || echo "ECS cluster successfully deleted"
-
-# Check for any remaining resources
-echo "Checking for any remaining resources..."
-
-# List any remaining ECS services
-aws ecs list-services --cluster $CLUSTER_NAME 2>/dev/null || echo "No ECS services found"
-
-# List any remaining load balancers
-REMAINING_LBS=$(aws elbv2 describe-load-balancers --query 'LoadBalancers[].LoadBalancerName' --output text 2>/dev/null)
-if [ -z "$REMAINING_LBS" ]; then
-    echo "No load balancers found"
-else
-    echo "Remaining load balancers: $REMAINING_LBS"
+# Get SNS topic ARN
+sns_topic_arn=$(aws sns list-topics --query 'Topics[?contains(TopicArn,`ecs-workshop-alerts`)].TopicArn' --output text 2>/dev/null)
+if [ ! -z "$sns_topic_arn" ]; then
+    echo "Deleting SNS topic $sns_topic_arn..." | tee -a cleanup.log
+    aws sns delete-topic --topic-arn $sns_topic_arn --no-cli-pager 2>/dev/null || echo "SNS topic not found"
 fi
+
+echo "✅ SNS Topics deleted" | tee -a cleanup.log
 ```
 
-### 18.2 Check Billing
+## Bước 8: Cleanup Secrets và Parameters
+
+### 8.1 Delete Secrets Manager Secrets
+
 ```bash
-# Get current month's costs (requires billing permissions)
-echo "Checking current month's costs..."
-aws ce get-cost-and-usage \
-    --time-period Start=$(date +%Y-%m-01),End=$(date +%Y-%m-%d) \
-    --granularity MONTHLY \
-    --metrics BlendedCost \
-    --group-by Type=DIMENSION,Key=SERVICE 2>/dev/null || echo "Unable to retrieve cost information (requires billing permissions)"
+echo "🔐 Deleting Secrets..." | tee -a cleanup.log
+
+secrets=("ecs-workshop/database" "ecs-workshop/api-keys")
+for secret in "${secrets[@]}"; do
+    echo "Deleting secret $secret..." | tee -a cleanup.log
+    aws secretsmanager delete-secret --secret-id $secret --force-delete-without-recovery --no-cli-pager 2>/dev/null || echo "Secret not found"
+done
+
+echo "✅ Secrets deleted" | tee -a cleanup.log
 ```
 
-## Cleanup Verification Checklist
+### 8.2 Delete SSM Parameters
 
-Verify that the following resources have been deleted:
+```bash
+echo "⚙️ Deleting SSM Parameters..." | tee -a cleanup.log
 
-- [ ] ECS Services (web-service, api-service, db-service)
-- [ ] ECS Cluster (ecs-workshop-cluster)
-- [ ] Task Definitions (deregistered)
-- [ ] Load Balancers and Target Groups
-- [ ] Service Discovery Services and Namespace
-- [ ] CloudWatch Log Groups
-- [ ] NAT Gateways
-- [ ] Elastic IP Addresses
-- [ ] Security Groups (custom ones)
-- [ ] Route Tables (custom ones)
-- [ ] Internet Gateway
-- [ ] Subnets
-- [ ] VPC
-- [ ] IAM Roles and Policies
-- [ ] Local workshop files
+parameters=("/ecs-workshop/app/environment" "/ecs-workshop/app/debug" "/ecs-workshop/app/max-connections")
+for param in "${parameters[@]}"; do
+    echo "Deleting parameter $param..." | tee -a cleanup.log
+    aws ssm delete-parameter --name $param --no-cli-pager 2>/dev/null || echo "Parameter not found"
+done
+
+echo "✅ SSM Parameters deleted" | tee -a cleanup.log
+```
+
+## Bước 9: Cleanup Local Files
+
+### 9.1 Delete Workshop Files
+
+```bash
+echo "🗂️ Cleaning up local files..." | tee -a cleanup.log
+
+# List files to be deleted
+echo "Files to be deleted:"
+ls -la *.json *.sh *.py *.txt 2>/dev/null || echo "No files to delete"
+
+# Delete generated files
+files_to_delete=(
+    "*.json"
+    "custom-metrics.sh"
+    "performance-monitor.sh"
+    "health-check.sh"
+    "load-test.sh"
+    "log-insights-queries.txt"
+    "/tmp/sg_rules.json"
+    "/tmp/sg_egress_rules.json"
+)
+
+for pattern in "${files_to_delete[@]}"; do
+    rm -f $pattern 2>/dev/null || echo "Files matching $pattern not found"
+done
+
+echo "✅ Local files cleaned up" | tee -a cleanup.log
+```
+
+### 9.2 Archive Workshop Data
+
+```bash
+echo "📦 Archiving workshop data..." | tee -a cleanup.log
+
+# Create archive directory
+mkdir -p workshop-archive
+
+# Move important files to archive
+mv workshop-env-backup.sh workshop-archive/ 2>/dev/null || echo "Backup file not found"
+mv cleanup.log workshop-archive/ 2>/dev/null || echo "Cleanup log not found"
+
+# Create summary file
+cat > workshop-archive/cleanup-summary.txt << EOF
+ECS Advanced Networking Workshop - Cleanup Summary
+==================================================
+Cleanup Date: $(date)
+Region: $(aws configure get region)
+Account: $(aws sts get-caller-identity --query Account --output text)
+
+Resources Cleaned Up:
+- ECS Cluster: $CLUSTER_NAME
+- VPC: $VPC_ID
+- Load Balancer: $ALB_ARN
+- Security Groups: $ALB_SG, $ECS_SG, $DB_SG, $MGMT_SG
+- Service Discovery Namespace: $NAMESPACE_ID
+
+All workshop resources have been successfully deleted.
+EOF
+
+echo "✅ Workshop data archived in workshop-archive/" | tee -a cleanup.log
+```
+
+## Bước 10: Verification và Final Steps
+
+### 10.1 Verify Cleanup
+
+```bash
+echo "🔍 Verifying cleanup..." | tee -a cleanup.log
+
+echo "Checking remaining resources:"
+
+# Check ECS
+echo "ECS Clusters:"
+aws ecs list-clusters --query 'clusterArns[?contains(@,`ecs-workshop`)]' --output text || echo "No ECS clusters found"
+
+# Check Load Balancers
+echo "Load Balancers:"
+aws elbv2 describe-load-balancers --query 'LoadBalancers[?contains(LoadBalancerName,`ecs-workshop`)].LoadBalancerName' --output text || echo "No load balancers found"
+
+# Check VPCs
+echo "VPCs:"
+aws ec2 describe-vpcs --filters Name=tag:Name,Values=ECS-Workshop-VPC --query 'Vpcs[].VpcId' --output text || echo "No VPCs found"
+
+# Check Security Groups
+echo "Security Groups:"
+aws ec2 describe-security-groups --filters Name=group-name,Values=ecs-* --query 'SecurityGroups[].GroupName' --output text || echo "No security groups found"
+
+# Check Log Groups
+echo "Log Groups:"
+aws logs describe-log-groups --log-group-name-prefix "/ecs/" --query 'logGroups[].logGroupName' --output text || echo "No log groups found"
+
+echo "✅ Cleanup verification completed" | tee -a cleanup.log
+```
+
+### 10.2 Cost Estimation
+
+```bash
+echo "💰 Cost Impact Analysis..." | tee -a cleanup.log
+
+cat << 'EOF'
+Estimated Monthly Savings from Cleanup:
+=======================================
+- ECS Fargate Tasks (3 services): ~$30-50/month
+- Application Load Balancer: ~$16/month
+- NAT Gateway: ~$32/month
+- VPC Flow Logs: ~$5-10/month
+- CloudWatch Logs: ~$5/month
+- Data Transfer: ~$5-15/month
+
+Total Estimated Savings: ~$93-128/month
+
+Note: Actual costs may vary based on usage patterns and region.
+EOF
+```
+
+### 10.3 Final Summary
+
+```bash
+echo "🎉 Cleanup Summary" | tee -a cleanup.log
+echo "==================" | tee -a cleanup.log
+
+cat << EOF | tee -a cleanup.log
+✅ CLEANUP COMPLETED SUCCESSFULLY!
+
+Resources Deleted:
+- ECS Services and Cluster
+- Application Load Balancer and Target Groups
+- VPC and all networking components
+- Security Groups and NACLs
+- Service Discovery namespace and services
+- IAM roles and policies
+- CloudWatch dashboards, alarms, and log groups
+- SNS topics
+- Secrets Manager secrets
+- SSM parameters
+- Local workshop files
+
+Next Steps:
+1. Review workshop-archive/ for any important data
+2. Check AWS billing console in 24-48 hours to confirm no charges
+3. Consider leaving feedback about the workshop experience
+
+Thank you for completing the ECS Advanced Networking Workshop! 🚀
+EOF
+
+echo ""
+echo "📁 Workshop archive location: $(pwd)/workshop-archive/"
+echo "📊 Cleanup log: $(pwd)/workshop-archive/cleanup.log"
+echo ""
+echo "🎯 Pro Tip: Bookmark this cleanup script for future workshops!"
+```
 
 ## Troubleshooting Cleanup Issues
 
-### Common Issues
+### Vấn đề thường gặp:
 
-1. **Resource Dependencies**
-   - Some resources cannot be deleted while others depend on them
-   - Follow the deletion order provided in this guide
-
-2. **NAT Gateway Deletion**
-   - NAT Gateways take time to delete (5-10 minutes)
-   - Wait for deletion to complete before proceeding
-
-3. **Security Group Deletion**
-   - Security groups with active references cannot be deleted
-   - Ensure all EC2 instances and load balancers are deleted first
-
-4. **VPC Deletion Fails**
-   - Check for remaining ENIs, VPC endpoints, or other resources
-   - Use the VPC console to identify remaining dependencies
-
-### Force Cleanup Commands
-
-If some resources are stuck, you can try these force cleanup commands:
-
+**Resources không thể xóa do dependencies:**
 ```bash
-# Force delete security groups
-aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" --query 'SecurityGroups[?GroupName!=`default`].GroupId' --output text | xargs -I {} aws ec2 delete-security-group --group-id {}
-
-# Force delete network interfaces
-aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=$VPC_ID" --query 'NetworkInterfaces[].NetworkInterfaceId' --output text | xargs -I {} aws ec2 delete-network-interface --network-interface-id {}
+# Kiểm tra dependencies
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=$VPC_ID
+aws elbv2 describe-load-balancers --query 'LoadBalancers[?VpcId==`'$VPC_ID'`]'
 ```
 
-## Final Cost Check
+**Security Groups không thể xóa:**
+```bash
+# Kiểm tra security group usage
+aws ec2 describe-network-interfaces --filters Name=group-id,Values=$ECS_SG
+aws ec2 describe-instances --filters Name=instance.group-id,Values=$ECS_SG
+```
 
-After cleanup, monitor your AWS bill for the next few days to ensure no unexpected charges. The workshop should have cost approximately $15-25 total.
+**VPC không thể xóa:**
+```bash
+# Kiểm tra VPC dependencies
+aws ec2 describe-vpc-endpoints --filters Name=vpc-id,Values=$VPC_ID
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=$VPC_ID
+```
 
-## Conclusion
+**Manual cleanup commands:**
+```bash
+# Force delete security group
+aws ec2 delete-security-group --group-id $ECS_SG --force
 
-Congratulations! You have successfully completed the ECS Advanced Networking Workshop and cleaned up all resources. 
+# Force delete VPC
+aws ec2 delete-vpc --vpc-id $VPC_ID --force
 
-### What You Accomplished
+# Check billing
+aws ce get-cost-and-usage --time-period Start=2024-01-01,End=2024-01-31 --granularity MONTHLY --metrics BlendedCost
+```
 
-- ✅ Built a custom VPC with proper networking architecture
-- ✅ Deployed ECS Fargate services with advanced networking
-- ✅ Implemented service discovery with AWS Cloud Map
-- ✅ Configured load balancing and traffic routing
-- ✅ Applied security best practices
-- ✅ Set up monitoring and logging
-- ✅ Cleaned up all resources to avoid ongoing charges
+## Emergency Cleanup Script
 
-### Next Steps
+```bash
+# Tạo emergency cleanup script
+cat > emergency-cleanup.sh << 'EOF'
+#!/bin/bash
+echo "🚨 EMERGENCY CLEANUP - Deleting ALL ECS and VPC resources"
 
-- Apply these concepts to your own projects
-- Explore additional ECS features like Service Connect
-- Learn about ECS Anywhere for hybrid deployments
-- Consider pursuing AWS certifications
+# Delete all ECS clusters
+for cluster in $(aws ecs list-clusters --query 'clusterArns' --output text); do
+    aws ecs delete-cluster --cluster $cluster --force
+done
+
+# Delete all custom VPCs
+for vpc in $(aws ec2 describe-vpcs --filters Name=is-default,Values=false --query 'Vpcs[].VpcId' --output text); do
+    aws ec2 delete-vpc --vpc-id $vpc
+done
+
+echo "Emergency cleanup completed"
+EOF
+
+chmod +x emergency-cleanup.sh
+echo "⚠️ Emergency cleanup script created: emergency-cleanup.sh"
+```
 
 ---
 
-**Thank you for participating in the ECS Advanced Networking Workshop!**
+## 🎉 Chúc mừng!
 
-For questions or feedback, please:
-- Join our [AWS Study Group](https://www.facebook.com/groups/awsstudygroupfcj/)
-- Open an issue on [GitHub](https://github.com/Binh2423/ECS_Advanced_Networking_Workshop)
-- Connect with the AWS community
+Bạn đã hoàn thành thành công **ECS Advanced Networking Workshop** và cleanup tất cả resources!
+
+**Những gì bạn đã học:**
+- ✅ VPC và Networking cơ bản
+- ✅ ECS Cluster và Services
+- ✅ Service Discovery
+- ✅ Load Balancing
+- ✅ Security Best Practices
+- ✅ Monitoring và Logging
+- ✅ Resource Management và Cleanup
+
+**Kỹ năng đã đạt được:**
+- Container orchestration với ECS
+- Advanced networking concepts
+- AWS security implementation
+- Monitoring và troubleshooting
+- Cost optimization
+
+Cảm ơn bạn đã tham gia workshop! 🚀
+
+---
+
+**💡 Cleanup Tip:** Luôn cleanup resources sau khi hoàn thành workshop để tránh chi phí không cần thiết.

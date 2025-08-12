@@ -1,161 +1,157 @@
 ---
-title : "Introduction"
+title : "Giới thiệu ECS Networking"
 date : "`r Sys.Date()`"
 weight : 1
 chapter : false
 pre : " <b> 1. </b> "
 ---
 
-# Introduction to ECS Advanced Networking
+# Tìm hiểu Amazon ECS Advanced Networking
 
-## What is Amazon ECS?
+## Amazon ECS là gì?
 
-Amazon Elastic Container Service (ECS) is a fully managed container orchestration service that makes it easy to deploy, manage, and scale containerized applications. ECS eliminates the need to install and operate your own container orchestration software, manage and scale a cluster of virtual machines, or schedule containers on those virtual machines.
+Amazon ECS (Elastic Container Service) giúp bạn chạy ứng dụng container mà không cần quản lý servers. Giống như thuê một căn hộ đã có đầy đủ tiện nghi thay vì tự xây nhà.
 
-## ECS Networking Overview
+![AWS ECS Console](/images/ecs-console-overview.png)
 
-ECS provides several networking modes and features that enable you to build sophisticated, production-ready containerized applications:
+### Tại sao chọn ECS?
+- **Không cần quản lý servers**: AWS lo tất cả
+- **Chỉ trả tiền khi dùng**: Tiết kiệm chi phí
+- **Tự động scale**: Tăng giảm resources theo nhu cầu
+- **Bảo mật cao**: Tích hợp sẵn với AWS security
 
-### Network Modes
+## Workshop này học gì?
 
-1. **awsvpc Mode** (Recommended)
-   - Each task gets its own elastic network interface (ENI)
-   - Direct VPC integration with security groups
-   - Enhanced security and monitoring capabilities
+Bạn sẽ xây dựng một hệ thống như thế này:
 
-2. **Bridge Mode**
-   - Default Docker bridge networking
-   - Port mapping required for external access
-   - Shared network namespace on host
+![Kiến trúc ECS](/images/ecs-architecture.png)
 
-3. **Host Mode**
-   - Direct access to host networking
-   - Highest performance but less isolation
-   - Limited port availability
+### 🎯 Mục tiêu cụ thể:
 
-### Key Networking Components
+**Giai đoạn 1: Xây dựng nền tảng (1-3 giờ)**
+- Tạo mạng riêng (VPC) 
+- Thiết lập ECS cluster
+- Cấu hình bảo mật cơ bản
 
-#### Service Discovery
-- **AWS Cloud Map**: DNS-based service discovery
-- **Service Connect**: Simplified service-to-service communication
-- **Load Balancer Integration**: Automatic registration/deregistration
+**Giai đoạn 2: Kết nối services (2-3 giờ)**
+- Services tự tìm thấy nhau (Service Discovery)
+- Phân phối traffic thông minh (Load Balancing)
 
-#### Load Balancing
-- **Application Load Balancer (ALB)**: Layer 7 load balancing
-- **Network Load Balancer (NLB)**: Layer 4 load balancing
-- **Classic Load Balancer (CLB)**: Legacy option
+**Giai đoạn 3: Sẵn sàng production (1-2 giờ)**
+- Bảo mật nâng cao
+- Giám sát và cảnh báo
+- Dọn dẹp tài nguyên
 
-#### Security
-- **Security Groups**: Virtual firewalls for tasks
-- **Network ACLs**: Subnet-level security
-- **VPC Endpoints**: Private connectivity to AWS services
+## Chuẩn bị gì?
 
-## Workshop Architecture
+### Kiến thức cần có:
+- Biết cơ bản về AWS (VPC, EC2)
+- Hiểu về containers và Docker
+- Sử dụng được command line
 
-In this workshop, we'll build the comprehensive ECS networking solution shown in the architecture diagram below:
+### Công cụ cần thiết:
+- AWS Account có quyền admin
+- AWS CLI đã cài đặt
+- Docker để test
+- Text editor (VS Code khuyến nghị)
 
-![ECS Advanced Networking Architecture](/images/ecs-architecture.png)
+### Chi phí dự kiến:
+- **Workshop**: ~$15-25 
+- **Thời gian**: 6 giờ
+- **Độ khó**: Trung cấp
 
-### Architecture Components
+## Kiến trúc sẽ xây dựng
 
-The solution includes:
+### Thành phần chính:
 
-1. **Multi-AZ VPC Design**
-   - Public subnets for load balancers and NAT gateways
-   - Private subnets for ECS tasks and internal services
-   - Internet Gateway for public internet access
-   - NAT Gateways for secure outbound connectivity
+**1. Network Layer**
+```
+Internet → Load Balancer → Private Network → ECS Tasks
+```
 
-2. **ECS Fargate Cluster**
-   - Serverless container platform
-   - Tasks deployed across multiple availability zones
-   - Automatic scaling and load distribution
+**2. Service Layer**
+```
+Frontend ↔ API ↔ Database
+(Tự động tìm thấy nhau qua DNS)
+```
 
-3. **Application Load Balancer**
-   - Layer 7 load balancing with advanced routing
-   - Health checks and target group management
-   - SSL/TLS termination capabilities
+**3. Security Layer**
+```
+WAF → SSL → Security Groups → Private Subnets
+```
 
-4. **Service Discovery**
-   - AWS Cloud Map integration
-   - DNS-based service resolution
-   - Automatic service registration/deregistration
+**4. Monitoring Layer**
+```
+CloudWatch → Alarms → Notifications
+```
 
-5. **Security Implementation**
-   - Security groups for network-level access control
-   - VPC endpoints for private AWS service access
-   - Network segmentation best practices
+## Tương tác với AWS Console
 
-6. **Monitoring & Observability**
-   - CloudWatch integration for metrics and logs
-   - VPC Flow Logs for network traffic analysis
-   - Application and infrastructure monitoring
+Trong workshop, bạn sẽ sử dụng các AWS Console sau:
 
-## Learning Objectives
+### 🖥️ Console chính:
 
-By the end of this workshop, you will be able to:
+**ECS Console**: [console.aws.amazon.com/ecs](https://console.aws.amazon.com/ecs/)
+- Quản lý clusters, services, tasks
+- Xem logs và metrics
 
-1. **Design ECS Network Architecture**
-   - Choose appropriate network modes
-   - Plan VPC and subnet strategies
-   - Implement security best practices
+![ECS Console](/images/ecs-console-clusters.png)
 
-2. **Implement Service Discovery**
-   - Configure AWS Cloud Map
-   - Set up DNS-based service discovery
-   - Manage service registration/deregistration
+**VPC Console**: [console.aws.amazon.com/vpc](https://console.aws.amazon.com/vpc/)
+- Tạo và quản lý network
+- Cấu hình security groups
 
-3. **Configure Advanced Load Balancing**
-   - Set up Application Load Balancers
-   - Implement path-based routing
-   - Configure health checks and sticky sessions
+![VPC Console](/images/vpc-console-overview.png)
 
-4. **Secure ECS Networks**
-   - Implement network segmentation
-   - Configure VPC endpoints
-   - Set up encryption in transit
+**CloudWatch Console**: [console.aws.amazon.com/cloudwatch](https://console.aws.amazon.com/cloudwatch/)
+- Xem metrics và logs
+- Tạo dashboards và alarms
 
-5. **Monitor and Troubleshoot**
-   - Set up CloudWatch monitoring
-   - Analyze VPC Flow Logs
-   - Troubleshoot connectivity issues
+![CloudWatch Console](/images/cloudwatch-dashboard.png)
 
-## Prerequisites Review
+### 💡 Tips sử dụng Console:
+- Bookmark các console thường dùng
+- Sử dụng multiple tabs
+- Filter theo tags để dễ tìm resources
 
-Before starting this workshop, ensure you have:
+## Luồng học tập
 
-- **AWS Account** with administrative access
-- **AWS CLI** installed and configured
-- **Docker** installed locally (for testing)
-- **Basic networking knowledge** (VPC, subnets, routing)
-- **Container experience** (Docker, containerization concepts)
+### Giai đoạn 1: Foundation (1-3 giờ)
+```
+Bước 1: Hiểu concepts → 30 phút
+Bước 2: Chuẩn bị tools → 30 phút  
+Bước 3: Tạo VPC & ECS → 2 giờ
+```
 
-## Workshop Flow
+### Giai đoạn 2: Core Features (2-3 giờ)
+```
+Bước 4: Service Discovery → 1.5 giờ
+Bước 5: Load Balancing → 1.5 giờ
+```
 
-This workshop is structured as a progressive learning experience:
+### Giai đoạn 3: Production Ready (1-2 giờ)
+```
+Bước 6: Security → 45 phút
+Bước 7: Monitoring → 45 phút
+Bước 8: Cleanup → 30 phút
+```
 
-1. **Foundation**: Set up VPC and ECS cluster
-2. **Core Services**: Deploy containerized applications
-3. **Service Discovery**: Enable service-to-service communication
-4. **Load Balancing**: Implement traffic distribution
-5. **Security**: Add network security layers
-6. **Monitoring**: Set up observability
-7. **Cleanup**: Remove all resources
+## Checklist trước khi bắt đầu
 
-Each section builds upon the previous one, creating a complete, production-ready ECS networking solution that matches the architecture diagram.
+- [ ] AWS Account sẵn sàng
+- [ ] AWS CLI configured
+- [ ] Docker installed
+- [ ] Đã đọc qua architecture
+- [ ] Có 6 giờ để hoàn thành
 
-> **Workshop Information**
-> - **Estimated Time**: 6 hours total
-> - **Cost**: Approximately $15-25 in AWS charges
-> - **Difficulty**: Intermediate to Advanced
+## Bước tiếp theo
 
-## Next Steps
-
-Ready to begin? Let's start with the [Prerequisites & Setup](../2-prerequisites/) section where we'll prepare your environment for the workshop.
+Sẵn sàng? Chuyển đến [Chuẩn bị môi trường](../2-prerequisites/) để thiết lập tools cần thiết.
 
 ---
 
-**Questions or Issues?**
-- Check the [Troubleshooting Guide](../7-monitoring/)
-- Join our [AWS Study Group](https://www.facebook.com/groups/awsstudygroupfcj/)
-- Open an issue on [GitHub](https://github.com/Binh2423/ECS_Advanced_Networking_Workshop)
+**❓ Cần hỗ trợ?**
+- [AWS Study Group Facebook](https://www.facebook.com/groups/awsstudygroupfcj/)
+- [GitHub Issues](https://github.com/Binh2423/ECS_Advanced_Networking.github.io/issues)
+
+**🚀 Bắt đầu hành trình ECS networking!**

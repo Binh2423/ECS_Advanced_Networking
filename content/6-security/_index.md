@@ -1,354 +1,236 @@
 ---
-title : "Security Best Practices"
+title : "Security và Network Policies"
 date : "`r Sys.Date()`"
 weight : 6
 chapter : false
 pre : " <b> 6. </b> "
 ---
 
-# Security Best Practices
+# Security và Network Policies
 
-In this section, we'll implement comprehensive security measures for our ECS networking setup, including network segmentation, encryption, access controls, and monitoring to create a production-ready secure environment.
+## Tại sao Security quan trọng?
 
-## Security Overview
+Giống như khóa cửa nhà, security đảm bảo chỉ những người được phép mới có thể truy cập vào hệ thống của bạn.
 
-ECS security involves multiple layers:
-- **Network Security**: VPC, subnets, security groups, NACLs
-- **Access Control**: IAM roles, policies, and service permissions
-- **Data Protection**: Encryption in transit and at rest
-- **Monitoring**: Logging, auditing, and threat detection
-- **Compliance**: Meeting regulatory and organizational requirements
+**Nguyên tắc Defense in Depth:**
+- **Network Level:** Security Groups, NACLs
+- **Application Level:** IAM Roles, Task Roles  
+- **Data Level:** Encryption, Secrets Management
+- **Monitoring:** CloudTrail, VPC Flow Logs
 
-## Security Architecture
-
-We'll implement a defense-in-depth security model:
+## Tổng quan Security Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Internet Gateway                         │
-│                   (Public Access)                           │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                      WAF                                    │
-│              (Web Application Firewall)                     │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                 Application Load Balancer                   │
-│                  (SSL Termination)                          │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                  Private Subnets                            │
-│              (ECS Tasks - No Public IP)                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │   Web App   │  │   API App   │  │  Database   │          │
-│  │ (Encrypted) │  │ (Encrypted) │  │ (Encrypted) │          │
-│  └─────────────┘  └─────────────┘  └─────────────┘          │
-└─────────────────────────────────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                   VPC Endpoints                             │
-│              (Private AWS API Access)                       │
-└─────────────────────────────────────────────────────────────┘
+Internet → WAF → ALB → Security Groups → ECS Tasks
+    ↓       ↓      ↓         ↓              ↓
+  Filter  Filter  Route   Network      Application
+  Attacks  Rules  Traffic  Control      Security
 ```
 
-## Step 1: Load Environment Variables
+## Bước 1: Chuẩn bị
+
+### 1.1 Load environment
 
 ```bash
-# Load environment variables
-source workshop-resources.env
+cd ~/ecs-workshop
+source workshop-env.sh
 
-# Verify variables are loaded
+# Kiểm tra resources hiện tại
 echo "VPC ID: $VPC_ID"
-echo "Cluster Name: $CLUSTER_NAME"
 echo "ALB ARN: $ALB_ARN"
+echo "ECS Cluster: $CLUSTER_NAME"
 ```
 
-## Step 2: Enhanced Security Groups
+### 1.2 Kiểm tra Security Groups hiện tại
 
-### 2.1 Create Granular Security Groups
 ```bash
-# Create security group for web tier
-WEB_SG=$(aws ec2 create-security-group \
-    --group-name ecs-web-tier-sg \
-    --description "Security group for web tier ECS tasks" \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-Web-Tier-SG},{Key=Tier,Value=Web}]' \
-    --query 'GroupId' \
-    --output text)
+echo "📋 Security Groups hiện tại:"
+aws ec2 describe-security-groups \
+    --group-ids $ALB_SG $ECS_SG \
+    --query 'SecurityGroups[].{GroupId:GroupId,GroupName:GroupName,Description:Description}' \
+    --output table
+```
 
-# Create security group for API tier
-API_SG=$(aws ec2 create-security-group \
-    --group-name ecs-api-tier-sg \
-    --description "Security group for API tier ECS tasks" \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-API-Tier-SG},{Key=Tier,Value=API}]' \
-    --query 'GroupId' \
-    --output text)
+## Bước 2: Tăng cường Security Groups
 
-# Create security group for database tier
+### 2.1 Tạo Database Security Group
+
+```bash
+echo "🔒 Tạo Database Security Group..."
+
 DB_SG=$(aws ec2 create-security-group \
-    --group-name ecs-db-tier-sg \
-    --description "Security group for database tier ECS tasks" \
+    --group-name ecs-database-sg \
+    --description "Security group for ECS database services" \
     --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-DB-Tier-SG},{Key=Tier,Value=Database}]' \
+    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-Database-SG},{Key=Environment,Value=Workshop}]' \
     --query 'GroupId' \
     --output text)
 
-echo "Web Tier SG: $WEB_SG"
-echo "API Tier SG: $API_SG"
-echo "Database Tier SG: $DB_SG"
+echo "✅ Database SG ID: $DB_SG"
+echo "export DB_SG=$DB_SG" >> workshop-env.sh
 ```
 
-### 2.2 Configure Security Group Rules
+### 2.2 Cấu hình Database Security Group Rules
+
 ```bash
-# Web tier - Allow traffic from ALB only
-aws ec2 authorize-security-group-ingress \
-    --group-id $WEB_SG \
-    --protocol tcp \
-    --port 80 \
-    --source-group $ALB_SG
+echo "🔧 Cấu hình Database SG rules..."
 
-# API tier - Allow traffic from web tier only
-aws ec2 authorize-security-group-ingress \
-    --group-id $API_SG \
-    --protocol tcp \
-    --port 80 \
-    --source-group $WEB_SG
-
-# Database tier - Allow traffic from API tier only
+# Chỉ cho phép ECS services truy cập database
 aws ec2 authorize-security-group-ingress \
     --group-id $DB_SG \
     --protocol tcp \
     --port 6379 \
-    --source-group $API_SG
+    --source-group $ECS_SG \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=Redis-Access-from-ECS}]'
 
-# Allow HTTPS outbound for all tiers (for AWS API calls)
-for sg in $WEB_SG $API_SG $DB_SG; do
-    aws ec2 authorize-security-group-egress \
-        --group-id $sg \
-        --protocol tcp \
-        --port 443 \
-        --cidr 0.0.0.0/0
-done
+# Cho phép MySQL/PostgreSQL nếu cần
+aws ec2 authorize-security-group-ingress \
+    --group-id $DB_SG \
+    --protocol tcp \
+    --port 3306 \
+    --source-group $ECS_SG \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=MySQL-Access-from-ECS}]'
 
-echo "Security group rules configured"
+aws ec2 authorize-security-group-ingress \
+    --group-id $DB_SG \
+    --protocol tcp \
+    --port 5432 \
+    --source-group $ECS_SG \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=PostgreSQL-Access-from-ECS}]'
+
+echo "✅ Database SG rules đã được cấu hình"
 ```
 
-## Step 3: VPC Endpoints for Private AWS API Access
+### 2.3 Tạo Management Security Group
 
-### 3.1 Create VPC Endpoints
 ```bash
-# Create VPC endpoint for ECS
-ECS_ENDPOINT=$(aws ec2 create-vpc-endpoint \
+echo "🔒 Tạo Management Security Group..."
+
+MGMT_SG=$(aws ec2 create-security-group \
+    --group-name ecs-management-sg \
+    --description "Security group for management access" \
     --vpc-id $VPC_ID \
-    --service-name com.amazonaws.$(aws configure get region).ecs \
-    --vpc-endpoint-type Interface \
-    --subnet-ids $PRIVATE_SUBNET_1 $PRIVATE_SUBNET_2 \
-    --security-group-ids $ECS_SG \
-    --private-dns-enabled \
-    --tag-specifications 'ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=ECS-VPC-Endpoint}]' \
-    --query 'VpcEndpoint.VpcEndpointId' \
+    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-Management-SG},{Key=Environment,Value=Workshop}]' \
+    --query 'GroupId' \
     --output text)
 
-# Create VPC endpoint for ECR API
-ECR_API_ENDPOINT=$(aws ec2 create-vpc-endpoint \
-    --vpc-id $VPC_ID \
-    --service-name com.amazonaws.$(aws configure get region).ecr.api \
-    --vpc-endpoint-type Interface \
-    --subnet-ids $PRIVATE_SUBNET_1 $PRIVATE_SUBNET_2 \
-    --security-group-ids $ECS_SG \
-    --private-dns-enabled \
-    --tag-specifications 'ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=ECR-API-VPC-Endpoint}]' \
-    --query 'VpcEndpoint.VpcEndpointId' \
-    --output text)
-
-# Create VPC endpoint for ECR Docker
-ECR_DKR_ENDPOINT=$(aws ec2 create-vpc-endpoint \
-    --vpc-id $VPC_ID \
-    --service-name com.amazonaws.$(aws configure get region).ecr.dkr \
-    --vpc-endpoint-type Interface \
-    --subnet-ids $PRIVATE_SUBNET_1 $PRIVATE_SUBNET_2 \
-    --security-group-ids $ECS_SG \
-    --private-dns-enabled \
-    --tag-specifications 'ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=ECR-DKR-VPC-Endpoint}]' \
-    --query 'VpcEndpoint.VpcEndpointId' \
-    --output text)
-
-# Create VPC endpoint for CloudWatch Logs
-LOGS_ENDPOINT=$(aws ec2 create-vpc-endpoint \
-    --vpc-id $VPC_ID \
-    --service-name com.amazonaws.$(aws configure get region).logs \
-    --vpc-endpoint-type Interface \
-    --subnet-ids $PRIVATE_SUBNET_1 $PRIVATE_SUBNET_2 \
-    --security-group-ids $ECS_SG \
-    --private-dns-enabled \
-    --tag-specifications 'ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=CloudWatch-Logs-VPC-Endpoint}]' \
-    --query 'VpcEndpoint.VpcEndpointId' \
-    --output text)
-
-# Create VPC endpoint for S3 (Gateway endpoint)
-S3_ENDPOINT=$(aws ec2 create-vpc-endpoint \
-    --vpc-id $VPC_ID \
-    --service-name com.amazonaws.$(aws configure get region).s3 \
-    --vpc-endpoint-type Gateway \
-    --route-table-ids $PRIVATE_RT_1 $PRIVATE_RT_2 \
-    --tag-specifications 'ResourceType=vpc-endpoint,Tags=[{Key=Name,Value=S3-VPC-Endpoint}]' \
-    --query 'VpcEndpoint.VpcEndpointId' \
-    --output text)
-
-echo "VPC Endpoints created:"
-echo "ECS: $ECS_ENDPOINT"
-echo "ECR API: $ECR_API_ENDPOINT"
-echo "ECR Docker: $ECR_DKR_ENDPOINT"
-echo "CloudWatch Logs: $LOGS_ENDPOINT"
-echo "S3: $S3_ENDPOINT"
+echo "✅ Management SG ID: $MGMT_SG"
+echo "export MGMT_SG=$MGMT_SG" >> workshop-env.sh
 ```
 
-## Step 4: Network ACLs for Additional Security
+### 2.4 Cấu hình Management Access
 
-### 4.1 Create Custom Network ACLs
 ```bash
-# Create Network ACL for private subnets
-PRIVATE_NACL=$(aws ec2 create-network-acl \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=network-acl,Tags=[{Key=Name,Value=ECS-Private-NACL}]' \
-    --query 'NetworkAcl.NetworkAclId' \
-    --output text)
+echo "🔧 Cấu hình Management SG rules..."
 
-echo "Private Network ACL: $PRIVATE_NACL"
+# SSH access từ specific IP (thay đổi IP theo nhu cầu)
+MY_IP=$(curl -s https://checkip.amazonaws.com)
+aws ec2 authorize-security-group-ingress \
+    --group-id $MGMT_SG \
+    --protocol tcp \
+    --port 22 \
+    --cidr ${MY_IP}/32 \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=SSH-Access}]'
+
+# HTTPS access cho management tools
+aws ec2 authorize-security-group-ingress \
+    --group-id $MGMT_SG \
+    --protocol tcp \
+    --port 443 \
+    --cidr ${MY_IP}/32 \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=HTTPS-Management}]'
+
+echo "✅ Management access từ IP: $MY_IP"
 ```
 
-### 4.2 Configure Network ACL Rules
+## Bước 3: Cập nhật ECS Security Groups
+
+### 3.1 Tăng cường ECS Security Group
+
 ```bash
-# Allow inbound HTTP from public subnets
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 100 \
-    --protocol tcp \
-    --rule-action allow \
-    --port-range From=80,To=80 \
-    --cidr-block 10.0.1.0/24
+echo "🔧 Cập nhật ECS Security Group..."
 
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 110 \
+# Xóa rule quá rộng nếu có
+aws ec2 revoke-security-group-ingress \
+    --group-id $ECS_SG \
     --protocol tcp \
-    --rule-action allow \
-    --port-range From=80,To=80 \
-    --cidr-block 10.0.2.0/24
+    --port 80 \
+    --cidr 0.0.0.0/0 2>/dev/null || echo "Rule không tồn tại"
 
-# Allow inbound HTTPS for AWS API calls
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 200 \
+# Chỉ cho phép ALB truy cập ECS tasks
+aws ec2 authorize-security-group-ingress \
+    --group-id $ECS_SG \
     --protocol tcp \
-    --rule-action allow \
-    --port-range From=443,To=443 \
-    --cidr-block 0.0.0.0/0
+    --port 80 \
+    --source-group $ALB_SG \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=HTTP-from-ALB}]' 2>/dev/null || echo "Rule đã tồn tại"
 
-# Allow ephemeral ports for return traffic
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 300 \
+# Cho phép HTTPS nếu cần
+aws ec2 authorize-security-group-ingress \
+    --group-id $ECS_SG \
     --protocol tcp \
-    --rule-action allow \
-    --port-range From=1024,To=65535 \
-    --cidr-block 0.0.0.0/0
+    --port 443 \
+    --source-group $ALB_SG \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=HTTPS-from-ALB}]' 2>/dev/null || echo "Rule đã tồn tại"
 
-# Allow outbound traffic
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 100 \
-    --protocol tcp \
-    --rule-action allow \
-    --port-range From=80,To=80 \
-    --cidr-block 0.0.0.0/0 \
-    --egress
-
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 110 \
-    --protocol tcp \
-    --rule-action allow \
-    --port-range From=443,To=443 \
-    --cidr-block 0.0.0.0/0 \
-    --egress
-
-aws ec2 create-network-acl-entry \
-    --network-acl-id $PRIVATE_NACL \
-    --rule-number 200 \
-    --protocol tcp \
-    --rule-action allow \
-    --port-range From=1024,To=65535 \
-    --cidr-block 0.0.0.0/0 \
-    --egress
-
-echo "Network ACL rules configured"
+echo "✅ ECS Security Group đã được cập nhật"
 ```
 
-### 4.3 Associate Network ACL with Private Subnets
+### 3.2 Cập nhật ALB Security Group
+
 ```bash
-# Get current associations
-SUBNET1_ASSOC=$(aws ec2 describe-network-acls \
-    --filters "Name=association.subnet-id,Values=$PRIVATE_SUBNET_1" \
-    --query 'NetworkAcls[0].Associations[?SubnetId==`'$PRIVATE_SUBNET_1'`].NetworkAclAssociationId' \
-    --output text)
+echo "🔧 Cập nhật ALB Security Group..."
 
-SUBNET2_ASSOC=$(aws ec2 describe-network-acls \
-    --filters "Name=association.subnet-id,Values=$PRIVATE_SUBNET_2" \
-    --query 'NetworkAcls[0].Associations[?SubnetId==`'$PRIVATE_SUBNET_2'`].NetworkAclAssociationId' \
-    --output text)
+# Kiểm tra và thêm HTTPS rule nếu chưa có
+aws ec2 authorize-security-group-ingress \
+    --group-id $ALB_SG \
+    --protocol tcp \
+    --port 443 \
+    --cidr 0.0.0.0/0 \
+    --tag-specifications 'ResourceType=security-group-rule,Tags=[{Key=Name,Value=HTTPS-Internet}]' 2>/dev/null || echo "HTTPS rule đã tồn tại"
 
-# Replace associations
-aws ec2 replace-network-acl-association \
-    --association-id $SUBNET1_ASSOC \
-    --network-acl-id $PRIVATE_NACL
-
-aws ec2 replace-network-acl-association \
-    --association-id $SUBNET2_ASSOC \
-    --network-acl-id $PRIVATE_NACL
-
-echo "Network ACL associated with private subnets"
+echo "✅ ALB Security Group đã được cập nhật"
 ```
 
-## Step 5: Enhanced IAM Security
+## Bước 4: Cấu hình IAM Security
 
-### 5.1 Create Least Privilege Task Roles
+### 4.1 Tạo Enhanced Task Role
+
 ```bash
-# Create specific task role for web service
-cat > web-task-policy.json << EOF
+echo "👤 Tạo Enhanced Task Role..."
+
+# Tạo trust policy
+cat > task-trust-policy.json << EOF
 {
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-            ],
-            "Resource": "arn:aws:logs:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):log-group:/ecs/web-*"
+            "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
         }
     ]
 }
 EOF
 
-aws iam create-policy \
-    --policy-name ECSWebTaskPolicy \
-    --policy-document file://web-task-policy.json
-
+# Tạo task role với permissions hạn chế
 aws iam create-role \
-    --role-name ecsWebTaskRole \
-    --assume-role-policy-document file://ecs-task-execution-trust-policy.json
+    --role-name ecsEnhancedTaskRole \
+    --assume-role-policy-document file://task-trust-policy.json \
+    --description "Enhanced ECS task role with limited permissions" \
+    --tags Key=Environment,Value=Workshop Key=Purpose,Value=ECS-Task
 
-aws iam attach-role-policy \
-    --role-name ecsWebTaskRole \
-    --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/ECSWebTaskPolicy
+echo "✅ Enhanced Task Role đã tạo"
+```
 
-# Create specific task role for API service
-cat > api-task-policy.json << EOF
+### 4.2 Tạo Custom Policy cho Tasks
+
+```bash
+echo "📜 Tạo Custom Policy..."
+
+cat > task-custom-policy.json << EOF
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -358,102 +240,174 @@ cat > api-task-policy.json << EOF
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
             ],
-            "Resource": "arn:aws:logs:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):log-group:/ecs/api-*"
+            "Resource": [
+                "arn:aws:logs:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):log-group:/ecs/*"
+            ]
         },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "servicediscovery:DiscoverInstances"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-EOF
-
-aws iam create-policy \
-    --policy-name ECSAPITaskPolicy \
-    --policy-document file://api-task-policy.json
-
-aws iam create-role \
-    --role-name ecsAPITaskRole \
-    --assume-role-policy-document file://ecs-task-execution-trust-policy.json
-
-aws iam attach-role-policy \
-    --role-name ecsAPITaskRole \
-    --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/ECSAPITaskPolicy
-
-echo "Least privilege task roles created"
-```
-
-## Step 6: Secrets Management
-
-### 6.1 Create Secrets in AWS Secrets Manager
-```bash
-# Create database credentials secret
-DB_SECRET_ARN=$(aws secretsmanager create-secret \
-    --name "ecs-workshop/database" \
-    --description "Database credentials for ECS workshop" \
-    --secret-string '{"username":"admin","password":"SecurePassword123!","host":"db.workshop.local","port":"6379"}' \
-    --tags Key=Environment,Value=workshop Key=Service,Value=database \
-    --query 'ARN' \
-    --output text)
-
-# Create API keys secret
-API_SECRET_ARN=$(aws secretsmanager create-secret \
-    --name "ecs-workshop/api-keys" \
-    --description "API keys for ECS workshop" \
-    --secret-string '{"external_api_key":"api-key-12345","jwt_secret":"jwt-secret-67890"}' \
-    --tags Key=Environment,Value=workshop Key=Service,Value=api \
-    --query 'ARN' \
-    --output text)
-
-echo "Database Secret ARN: $DB_SECRET_ARN"
-echo "API Secret ARN: $API_SECRET_ARN"
-```
-
-### 6.2 Update IAM Roles for Secrets Access
-```bash
-# Create policy for secrets access
-cat > secrets-access-policy.json << EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
         {
             "Effect": "Allow",
             "Action": [
                 "secretsmanager:GetSecretValue"
             ],
             "Resource": [
-                "$DB_SECRET_ARN",
-                "$API_SECRET_ARN"
+                "arn:aws:secretsmanager:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):secret:ecs-workshop/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParameter",
+                "ssm:GetParameters"
+            ],
+            "Resource": [
+                "arn:aws:ssm:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):parameter/ecs-workshop/*"
             ]
         }
     ]
 }
 EOF
 
+# Tạo policy
 aws iam create-policy \
-    --policy-name ECSSecretsAccessPolicy \
-    --policy-document file://secrets-access-policy.json
+    --policy-name ECSWorkshopTaskPolicy \
+    --policy-document file://task-custom-policy.json \
+    --description "Custom policy for ECS workshop tasks"
 
-# Attach to API task role
+# Attach policy to role
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 aws iam attach-role-policy \
-    --role-name ecsAPITaskRole \
-    --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/ECSSecretsAccessPolicy
+    --role-name ecsEnhancedTaskRole \
+    --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/ECSWorkshopTaskPolicy
 
-echo "Secrets access policy attached"
+echo "✅ Custom policy đã được attach"
 ```
 
-## Step 7: Enable VPC Flow Logs
+## Bước 5: Secrets Management
 
-### 7.1 Create CloudWatch Log Group for VPC Flow Logs
+### 5.1 Tạo Secrets trong AWS Secrets Manager
+
 ```bash
-# Create log group for VPC Flow Logs
+echo "🔐 Tạo secrets..."
+
+# Database credentials
+aws secretsmanager create-secret \
+    --name "ecs-workshop/database" \
+    --description "Database credentials for ECS workshop" \
+    --secret-string '{"username":"dbuser","password":"SecurePassword123!","host":"db.myapp.local","port":"6379"}' \
+    --tags Key=Environment,Value=Workshop Key=Service,Value=Database
+
+# API keys
+aws secretsmanager create-secret \
+    --name "ecs-workshop/api-keys" \
+    --description "API keys for ECS workshop" \
+    --secret-string '{"api_key":"workshop-api-key-123","jwt_secret":"super-secret-jwt-key-456"}' \
+    --tags Key=Environment,Value=Workshop Key=Service,Value=API
+
+echo "✅ Secrets đã được tạo"
+```
+
+### 5.2 Tạo Parameters trong Systems Manager
+
+```bash
+echo "⚙️ Tạo SSM parameters..."
+
+# Application configuration
+aws ssm put-parameter \
+    --name "/ecs-workshop/app/environment" \
+    --value "production" \
+    --type "String" \
+    --description "Application environment" \
+    --tags Key=Environment,Value=Workshop
+
+aws ssm put-parameter \
+    --name "/ecs-workshop/app/debug" \
+    --value "false" \
+    --type "String" \
+    --description "Debug mode setting" \
+    --tags Key=Environment,Value=Workshop
+
+aws ssm put-parameter \
+    --name "/ecs-workshop/app/max-connections" \
+    --value "100" \
+    --type "String" \
+    --description "Maximum database connections" \
+    --tags Key=Environment,Value=Workshop
+
+echo "✅ SSM parameters đã được tạo"
+```
+
+## Bước 6: Network Security với NACLs
+
+### 6.1 Tạo Custom Network ACL
+
+```bash
+echo "🛡️ Tạo Custom Network ACL..."
+
+CUSTOM_NACL=$(aws ec2 create-network-acl \
+    --vpc-id $VPC_ID \
+    --tag-specifications 'ResourceType=network-acl,Tags=[{Key=Name,Value=ECS-Workshop-NACL},{Key=Environment,Value=Workshop}]' \
+    --query 'NetworkAcl.NetworkAclId' \
+    --output text)
+
+echo "✅ Custom NACL ID: $CUSTOM_NACL"
+echo "export CUSTOM_NACL=$CUSTOM_NACL" >> workshop-env.sh
+```
+
+### 6.2 Cấu hình NACL Rules
+
+```bash
+echo "🔧 Cấu hình NACL rules..."
+
+# Allow HTTP inbound
+aws ec2 create-network-acl-entry \
+    --network-acl-id $CUSTOM_NACL \
+    --rule-number 100 \
+    --protocol tcp \
+    --rule-action allow \
+    --port-range From=80,To=80 \
+    --cidr-block 0.0.0.0/0
+
+# Allow HTTPS inbound
+aws ec2 create-network-acl-entry \
+    --network-acl-id $CUSTOM_NACL \
+    --rule-number 110 \
+    --protocol tcp \
+    --rule-action allow \
+    --port-range From=443,To=443 \
+    --cidr-block 0.0.0.0/0
+
+# Allow ephemeral ports inbound (for return traffic)
+aws ec2 create-network-acl-entry \
+    --network-acl-id $CUSTOM_NACL \
+    --rule-number 120 \
+    --protocol tcp \
+    --rule-action allow \
+    --port-range From=1024,To=65535 \
+    --cidr-block 0.0.0.0/0
+
+# Allow all outbound traffic
+aws ec2 create-network-acl-entry \
+    --network-acl-id $CUSTOM_NACL \
+    --rule-number 100 \
+    --protocol -1 \
+    --rule-action allow \
+    --cidr-block 0.0.0.0/0 \
+    --egress
+
+echo "✅ NACL rules đã được cấu hình"
+```
+
+## Bước 7: VPC Flow Logs
+
+### 7.1 Tạo CloudWatch Log Group cho VPC Flow Logs
+
+```bash
+echo "📊 Tạo VPC Flow Logs..."
+
 aws logs create-log-group --log-group-name /aws/vpc/flowlogs
 
-# Create IAM role for VPC Flow Logs
-cat > vpc-flow-logs-trust-policy.json << EOF
+# Tạo IAM role cho VPC Flow Logs
+cat > flowlogs-trust-policy.json << EOF
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -470,239 +424,307 @@ EOF
 
 aws iam create-role \
     --role-name flowlogsRole \
-    --assume-role-policy-document file://vpc-flow-logs-trust-policy.json
+    --assume-role-policy-document file://flowlogs-trust-policy.json
 
-# Create policy for VPC Flow Logs
-cat > vpc-flow-logs-policy.json << EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-                "logs:DescribeLogGroups",
-                "logs:DescribeLogStreams"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-EOF
-
-aws iam create-policy \
-    --policy-name flowlogsDeliveryRolePolicy \
-    --policy-document file://vpc-flow-logs-policy.json
-
+# Attach policy
 aws iam attach-role-policy \
     --role-name flowlogsRole \
-    --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/flowlogsDeliveryRolePolicy
+    --policy-arn arn:aws:iam::aws:policy/service-role/VPCFlowLogsDeliveryRolePolicy
+
+echo "✅ Flow Logs role đã tạo"
 ```
 
 ### 7.2 Enable VPC Flow Logs
+
 ```bash
-# Enable VPC Flow Logs
-FLOW_LOG_ID=$(aws ec2 create-flow-logs \
+echo "🔍 Enable VPC Flow Logs..."
+
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=$(aws configure get region)
+
+aws ec2 create-flow-logs \
     --resource-type VPC \
     --resource-ids $VPC_ID \
     --traffic-type ALL \
     --log-destination-type cloud-watch-logs \
     --log-group-name /aws/vpc/flowlogs \
-    --deliver-logs-permission-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/flowlogsRole \
-    --tag-specifications 'ResourceType=vpc-flow-log,Tags=[{Key=Name,Value=ECS-Workshop-VPC-FlowLogs}]' \
-    --query 'FlowLogIds[0]' \
-    --output text)
+    --deliver-logs-permission-arn arn:aws:iam::$ACCOUNT_ID:role/flowlogsRole \
+    --tag-specifications 'ResourceType=vpc-flow-log,Tags=[{Key=Name,Value=ECS-Workshop-FlowLogs}]'
 
-echo "VPC Flow Logs enabled: $FLOW_LOG_ID"
+echo "✅ VPC Flow Logs đã được enable"
 ```
 
-## Step 8: AWS Config for Compliance
+## Bước 8: Cập nhật Task Definitions với Security
 
-### 8.1 Enable AWS Config
+### 8.1 Cập nhật Frontend Task với Secrets
+
 ```bash
-# Create S3 bucket for AWS Config
-CONFIG_BUCKET="aws-config-bucket-$(aws sts get-caller-identity --query Account --output text)-$(date +%s)"
-aws s3 mb s3://$CONFIG_BUCKET --region $(aws configure get region)
+echo "🔄 Cập nhật Frontend Task với security..."
 
-# Create AWS Config service role
-aws iam create-service-linked-role --aws-service-name config.amazonaws.com || echo "Service role already exists"
+cat > frontend-secure-task-definition.json << EOF
+{
+    "family": "frontend-secure",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsEnhancedTaskRole",
+    "containerDefinitions": [
+        {
+            "name": "frontend",
+            "image": "nginx:latest",
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/frontend",
+                    "awslogs-region": "$(aws configure get region)",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "environment": [
+                {
+                    "name": "API_ENDPOINT",
+                    "value": "http://api.myapp.local"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):secret:ecs-workshop/api-keys:api_key::"
+                }
+            ]
+        }
+    ]
+}
+EOF
 
-# Create configuration recorder
-aws configservice put-configuration-recorder \
-    --configuration-recorder name=default,roleARN=arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/aws-service-role/config.amazonaws.com/AWSServiceRoleForConfig \
-    --recording-group allSupported=true,includeGlobalResourceTypes=true
-
-# Create delivery channel
-aws configservice put-delivery-channel \
-    --delivery-channel name=default,s3BucketName=$CONFIG_BUCKET
-
-# Start configuration recorder
-aws configservice start-configuration-recorder --configuration-recorder-name default
-
-echo "AWS Config enabled with bucket: $CONFIG_BUCKET"
+aws ecs register-task-definition --cli-input-json file://frontend-secure-task-definition.json
+echo "✅ Frontend secure task definition đã tạo"
 ```
 
-## Step 9: GuardDuty for Threat Detection
+### 8.2 Cập nhật Database Service với Security Group
 
-### 9.1 Enable GuardDuty
 ```bash
-# Enable GuardDuty
-DETECTOR_ID=$(aws guardduty create-detector \
-    --enable \
-    --finding-publishing-frequency FIFTEEN_MINUTES \
-    --tags Environment=workshop,Service=security \
-    --query 'DetectorId' \
-    --output text)
+echo "🔄 Cập nhật Database service với DB Security Group..."
 
-echo "GuardDuty enabled with detector ID: $DETECTOR_ID"
+aws ecs update-service \
+    --cluster $CLUSTER_NAME \
+    --service db-service \
+    --network-configuration "awsvpcConfiguration={
+        subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],
+        securityGroups=[$DB_SG],
+        assignPublicIp=DISABLED
+    }"
+
+echo "✅ Database service đã được cập nhật với DB Security Group"
 ```
 
-## Step 10: Security Monitoring and Alerting
+## Bước 9: Security Monitoring
 
-### 10.1 Create CloudWatch Alarms for Security Events
+### 9.1 Tạo CloudWatch Alarms
+
 ```bash
-# Create SNS topic for security alerts
-SECURITY_TOPIC_ARN=$(aws sns create-topic \
-    --name ecs-workshop-security-alerts \
-    --tags Key=Environment,Value=workshop Key=Purpose,Value=security \
+echo "🚨 Tạo Security Alarms..."
+
+# Alarm cho failed login attempts (giả định)
+aws cloudwatch put-metric-alarm \
+    --alarm-name "ECS-High-Error-Rate" \
+    --alarm-description "High error rate in ECS services" \
+    --metric-name "4XXError" \
+    --namespace "AWS/ApplicationELB" \
+    --statistic "Sum" \
+    --period 300 \
+    --threshold 10 \
+    --comparison-operator "GreaterThanThreshold" \
+    --evaluation-periods 2 \
+    --alarm-actions "arn:aws:sns:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):ecs-workshop-alerts" \
+    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-)
+
+# Alarm cho unusual network traffic
+aws cloudwatch put-metric-alarm \
+    --alarm-name "ECS-High-Network-Traffic" \
+    --alarm-description "Unusual network traffic pattern" \
+    --metric-name "NetworkPacketsIn" \
+    --namespace "AWS/ECS" \
+    --statistic "Sum" \
+    --period 300 \
+    --threshold 10000 \
+    --comparison-operator "GreaterThanThreshold" \
+    --evaluation-periods 1 \
+    --dimensions Name=ClusterName,Value=$CLUSTER_NAME
+
+echo "✅ Security alarms đã được tạo"
+```
+
+### 9.2 Tạo SNS Topic cho Alerts
+
+```bash
+echo "📧 Tạo SNS topic cho security alerts..."
+
+SNS_TOPIC_ARN=$(aws sns create-topic \
+    --name ecs-workshop-alerts \
+    --attributes DisplayName="ECS Workshop Security Alerts" \
+    --tags Key=Environment,Value=Workshop \
     --query 'TopicArn' \
     --output text)
 
-# Subscribe email to topic (replace with your email)
+echo "✅ SNS Topic ARN: $SNS_TOPIC_ARN"
+
+# Subscribe email (thay đổi email address)
 # aws sns subscribe \
-#     --topic-arn $SECURITY_TOPIC_ARN \
+#     --topic-arn $SNS_TOPIC_ARN \
 #     --protocol email \
 #     --notification-endpoint your-email@example.com
 
-# Create alarm for failed login attempts (example)
-aws cloudwatch put-metric-alarm \
-    --alarm-name "ECS-Workshop-Security-FailedLogins" \
-    --alarm-description "Alert on multiple failed login attempts" \
-    --metric-name "FailedLoginAttempts" \
-    --namespace "ECS/Workshop" \
-    --statistic Sum \
-    --period 300 \
-    --threshold 5 \
-    --comparison-operator GreaterThanThreshold \
-    --evaluation-periods 1 \
-    --alarm-actions $SECURITY_TOPIC_ARN
-
-echo "Security monitoring configured"
-echo "Security Topic ARN: $SECURITY_TOPIC_ARN"
+echo "💡 Để nhận alerts, chạy:"
+echo "aws sns subscribe --topic-arn $SNS_TOPIC_ARN --protocol email --notification-endpoint your-email@example.com"
 ```
 
-## Step 11: Update Environment Variables
+## Bước 10: Security Testing
+
+### 10.1 Test Security Groups
 
 ```bash
-# Update environment variables file
-cat >> workshop-resources.env << EOF
-export WEB_SG=$WEB_SG
-export API_SG=$API_SG
-export DB_SG=$DB_SG
-export ECS_ENDPOINT=$ECS_ENDPOINT
-export ECR_API_ENDPOINT=$ECR_API_ENDPOINT
-export ECR_DKR_ENDPOINT=$ECR_DKR_ENDPOINT
-export LOGS_ENDPOINT=$LOGS_ENDPOINT
-export S3_ENDPOINT=$S3_ENDPOINT
-export PRIVATE_NACL=$PRIVATE_NACL
-export DB_SECRET_ARN=$DB_SECRET_ARN
-export API_SECRET_ARN=$API_SECRET_ARN
-export FLOW_LOG_ID=$FLOW_LOG_ID
-export CONFIG_BUCKET=$CONFIG_BUCKET
-export DETECTOR_ID=$DETECTOR_ID
-export SECURITY_TOPIC_ARN=$SECURITY_TOPIC_ARN
-EOF
+echo "🧪 Test Security Groups..."
 
-echo "Security resources added to workshop-resources.env"
+# Test từ internet đến ALB (should work)
+echo "Test ALB access:"
+curl -s -o /dev/null -w "Status: %{http_code}\n" http://$ALB_DNS/
+
+# Test direct access to ECS (should fail)
+echo "Test direct ECS access (should fail):"
+ECS_TASK_IP=$(aws ecs describe-tasks \
+    --cluster $CLUSTER_NAME \
+    --tasks $(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name frontend-service --query 'taskArns[0]' --output text) \
+    --query 'tasks[0].attachments[0].details[?name==`privateIPv4Address`].value' \
+    --output text)
+
+echo "ECS Task IP: $ECS_TASK_IP"
+timeout 5 curl -s http://$ECS_TASK_IP/ || echo "✅ Direct access blocked (good!)"
 ```
 
-## Security Testing and Validation
+### 10.2 Test Secrets Access
 
-### Test Network Segmentation
 ```bash
-# Test that web tier can only be accessed from ALB
-echo "Testing network segmentation..."
+echo "🔐 Test Secrets Access..."
 
-# This should fail (no direct access to web tier)
-# curl -m 5 http://PRIVATE_IP_OF_WEB_TASK
+# Kiểm tra task có thể access secrets không
+aws ecs run-task \
+    --cluster $CLUSTER_NAME \
+    --task-definition frontend-secure \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={
+        subnets=[$PRIVATE_SUBNET_1],
+        securityGroups=[$ECS_SG],
+        assignPublicIp=DISABLED
+    }" \
+    --count 1
 
-# This should work (through ALB)
-curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/
-
-echo "Network segmentation test completed"
+echo "✅ Test task với secrets đã được start"
 ```
 
-### Validate VPC Endpoints
+## Bước 11: Security Best Practices
+
+### 11.1 Kiểm tra Security Configuration
+
 ```bash
-# Check VPC endpoint status
-aws ec2 describe-vpc-endpoints \
-    --vpc-endpoint-ids $ECS_ENDPOINT $ECR_API_ENDPOINT $ECR_DKR_ENDPOINT $LOGS_ENDPOINT \
-    --query 'VpcEndpoints[].{Service:ServiceName,State:State}'
+echo "📋 Security Configuration Summary:"
 
-echo "VPC endpoints validation completed"
+echo "=== Security Groups ==="
+aws ec2 describe-security-groups \
+    --group-ids $ALB_SG $ECS_SG $DB_SG \
+    --query 'SecurityGroups[].{Name:GroupName,ID:GroupId,Rules:length(IpPermissions)}' \
+    --output table
+
+echo "=== IAM Roles ==="
+aws iam list-roles \
+    --query 'Roles[?contains(RoleName,`ecs`)].{RoleName:RoleName,Created:CreateDate}' \
+    --output table
+
+echo "=== Secrets ==="
+aws secretsmanager list-secrets \
+    --query 'SecretList[?contains(Name,`ecs-workshop`)].{Name:Name,LastChanged:LastChangedDate}' \
+    --output table
+
+echo "=== VPC Flow Logs ==="
+aws ec2 describe-flow-logs \
+    --filter Name=resource-id,Values=$VPC_ID \
+    --query 'FlowLogs[].{ID:FlowLogId,Status:FlowLogStatus,LogGroup:LogDestination}' \
+    --output table
 ```
 
-### Review Security Configuration
+### 11.2 Security Checklist
+
 ```bash
-# Generate security report
-echo "=== SECURITY CONFIGURATION REPORT ==="
-echo "VPC ID: $VPC_ID"
-echo "Security Groups: Web($WEB_SG), API($API_SG), DB($DB_SG)"
-echo "VPC Endpoints: ECS, ECR-API, ECR-DKR, CloudWatch Logs, S3"
-echo "Network ACL: $PRIVATE_NACL"
-echo "VPC Flow Logs: $FLOW_LOG_ID"
-echo "AWS Config: Enabled"
-echo "GuardDuty: $DETECTOR_ID"
-echo "Secrets Manager: Database and API secrets configured"
-echo "=================================="
+echo "✅ Security Checklist:"
+echo "□ Security Groups configured with least privilege"
+echo "□ IAM roles follow principle of least privilege"  
+echo "□ Secrets stored in AWS Secrets Manager"
+echo "□ VPC Flow Logs enabled"
+echo "□ CloudWatch monitoring configured"
+echo "□ Network ACLs configured (optional)"
+echo "□ SSL/TLS certificates ready (for production)"
+echo "□ WAF configured (for production)"
 ```
 
-## Security Best Practices Summary
+## Troubleshooting Security Issues
 
-1. **Network Security**
-   - ✅ Multi-tier security groups with least privilege
-   - ✅ Network ACLs for additional layer of security
-   - ✅ VPC endpoints for private AWS API access
-   - ✅ No public IPs on ECS tasks
+### Vấn đề thường gặp:
 
-2. **Access Control**
-   - ✅ Least privilege IAM roles for each service
-   - ✅ Service-specific permissions
-   - ✅ Secrets Manager for sensitive data
+**Task không thể access secrets:**
+```bash
+# Kiểm tra task role permissions
+aws iam simulate-principal-policy \
+    --policy-source-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsEnhancedTaskRole \
+    --action-names secretsmanager:GetSecretValue \
+    --resource-arns arn:aws:secretsmanager:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):secret:ecs-workshop/api-keys
+```
 
-3. **Monitoring and Compliance**
-   - ✅ VPC Flow Logs for network monitoring
-   - ✅ AWS Config for compliance tracking
-   - ✅ GuardDuty for threat detection
-   - ✅ CloudWatch alarms for security events
+**Security Group rules không hoạt động:**
+```bash
+# Kiểm tra security group associations
+aws ec2 describe-network-interfaces \
+    --filters Name=group-id,Values=$ECS_SG \
+    --query 'NetworkInterfaces[].{ID:NetworkInterfaceId,Groups:Groups[].GroupId}'
+```
 
-4. **Data Protection**
-   - ✅ Encryption in transit (HTTPS/TLS)
-   - ✅ Secrets management
-   - ✅ Secure communication between services
+**VPC Flow Logs không có data:**
+```bash
+# Kiểm tra flow logs status
+aws ec2 describe-flow-logs --flow-log-ids $(aws ec2 describe-flow-logs --filter Name=resource-id,Values=$VPC_ID --query 'FlowLogs[0].FlowLogId' --output text)
+```
 
-## Next Steps
+## Tóm tắt
 
-Outstanding! You've implemented comprehensive security measures for your ECS networking setup. Your environment now includes:
+Bạn đã triển khai thành công:
 
-- ✅ Multi-layered network security
-- ✅ Least privilege access controls
-- ✅ Private AWS API access via VPC endpoints
-- ✅ Comprehensive monitoring and threat detection
-- ✅ Secrets management and data protection
+- ✅ **Network Security:** Security Groups với least privilege
+- ✅ **IAM Security:** Custom roles và policies
+- ✅ **Secrets Management:** AWS Secrets Manager và SSM
+- ✅ **Network Monitoring:** VPC Flow Logs
+- ✅ **Security Monitoring:** CloudWatch Alarms
+- ✅ **Access Control:** NACLs và proper routing
+- ✅ **Security Testing:** Verification scripts
 
-Next, we'll move on to [Monitoring & Troubleshooting](../7-monitoring/) where we'll set up comprehensive observability and learn how to troubleshoot common issues.
+**Security Layers:**
+- **Perimeter:** ALB Security Group
+- **Application:** ECS Security Group  
+- **Data:** Database Security Group
+- **Monitoring:** Flow Logs + CloudWatch
+- **Secrets:** Encrypted storage
+
+## Bước tiếp theo
+
+Security đã được tăng cường! Tiếp theo chúng ta sẽ thiết lập [Monitoring và Logging](../7-monitoring/) để theo dõi hệ thống.
 
 ---
 
-**Security Resources Created:**
-- 3 Granular Security Groups
-- 5 VPC Endpoints (ECS, ECR, CloudWatch Logs, S3)
-- 1 Custom Network ACL
-- 2 Secrets in Secrets Manager
-- VPC Flow Logs
-- AWS Config
-- GuardDuty
-- Security monitoring and alerting
+**💡 Security Tip:** Luôn áp dụng nguyên tắc "least privilege" - chỉ cấp quyền tối thiểu cần thiết.

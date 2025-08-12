@@ -1,231 +1,294 @@
 ---
-title : "Prerequisites & Setup"
+title : "Chuẩn bị môi trường"
 date : "`r Sys.Date()`"
 weight : 2
 chapter : false
 pre : " <b> 2. </b> "
 ---
 
-# Prerequisites & Setup
+# Chuẩn bị môi trường làm việc
 
-Before diving into the ECS Advanced Networking workshop, let's ensure your environment is properly configured with all necessary tools and permissions.
+## Bước 1: Kiểm tra AWS Account
 
-## AWS Account Requirements
+### 1.1 Đăng nhập AWS Console
 
-### Account Setup
-- **AWS Account** with billing enabled
-- **Administrative access** or equivalent permissions for:
-  - EC2 (VPC, Security Groups, Load Balancers)
-  - ECS (Clusters, Services, Tasks)
-  - IAM (Roles, Policies)
-  - CloudWatch (Logs, Metrics)
-  - Route 53 (for Service Discovery)
+1. Truy cập [AWS Console](https://console.aws.amazon.com/)
+2. Đăng nhập với account của bạn
+3. Chọn region **us-east-1** (N. Virginia)
 
-### Cost Considerations
-- **Estimated workshop cost**: $15-25
-- **Free Tier eligible**: Some services (CloudWatch Logs, limited ECS usage)
-- **Billing alerts**: Recommended to set up before starting
+![Đăng nhập AWS Console](/images/aws-console-login.png)
 
-> **Warning**: This workshop will create AWS resources that incur charges. Make sure to complete the cleanup section at the end!
+### 1.2 Kiểm tra quyền
 
-## Required Tools
+Vào [IAM Console](https://console.aws.amazon.com/iam/) và kiểm tra:
+- User có quyền **AdministratorAccess** hoặc
+- Có đủ quyền cho ECS, VPC, EC2, IAM
 
-### 1. AWS CLI v2
-Install and configure the AWS Command Line Interface:
+![IAM Console](/images/iam-roles-ecs.png)
 
+### 1.3 Thiết lập Billing Alert
+
+**Tại sao cần?** Để tránh chi phí bất ngờ
+
+**Cách làm:**
+1. Vào [Billing Console](https://console.aws.amazon.com/billing/)
+2. Chọn "Billing preferences"
+3. Bật "Receive Billing Alerts"
+4. Tạo alert cho $30
+
+![Billing Alert Setup](/images/billing-alert-setup.png)
+
+## Bước 2: Cài đặt AWS CLI
+
+### 2.1 Download và cài đặt
+
+**Windows:**
+```powershell
+# Download từ: https://awscli.amazonaws.com/AWSCLIV2.msi
+# Chạy file .msi và làm theo hướng dẫn
+```
+
+**macOS:**
 ```bash
-# Install AWS CLI v2 (Linux/macOS)
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+```
+
+**Linux:**
+```bash
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
-
-# Verify installation
-aws --version
 ```
 
-**Configure AWS CLI:**
+### 2.2 Xác minh cài đặt
+
+```bash
+aws --version
+# Kết quả mong đợi: aws-cli/2.x.x Python/3.x.x
+```
+
+### 2.3 Cấu hình AWS CLI
+
 ```bash
 aws configure
-# Enter your Access Key ID
-# Enter your Secret Access Key
-# Default region: us-east-1 (recommended for this workshop)
-# Default output format: json
 ```
 
-### 2. Docker Desktop
-Install Docker for local container testing:
+Nhập thông tin:
+```
+AWS Access Key ID: [Nhập access key]
+AWS Secret Access Key: [Nhập secret key]  
+Default region name: us-east-1
+Default output format: json
+```
 
-- **Windows/macOS**: [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- **Linux**: [Docker Engine](https://docs.docker.com/engine/install/)
+### 2.4 Test kết nối
 
 ```bash
-# Verify Docker installation
-docker --version
-docker run hello-world
+aws sts get-caller-identity
 ```
 
-### 3. Text Editor/IDE
-Recommended editors with AWS/Docker support:
-- **Visual Studio Code** with AWS Toolkit extension
-- **AWS Cloud9** (browser-based IDE)
-- **IntelliJ IDEA** with AWS plugin
-
-### 4. Git (Optional)
-For cloning workshop materials:
-```bash
-git --version
-```
-
-## AWS Permissions
-
-### Required IAM Permissions
-Your AWS user/role needs the following permissions:
-
+Kết quả mong đợi:
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ec2:*",
-                "ecs:*",
-                "elasticloadbalancing:*",
-                "iam:CreateRole",
-                "iam:AttachRolePolicy",
-                "iam:PassRole",
-                "logs:*",
-                "servicediscovery:*",
-                "route53:*"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-```
-
-### Service-Linked Roles
-ECS will automatically create required service-linked roles. If you encounter permission issues, you may need to create them manually:
-
-```bash
-# Create ECS service-linked role
-aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com
-```
-
-## Environment Validation
-
-### 1. AWS CLI Test
-Verify your AWS CLI configuration:
-
-```bash
-# Test AWS CLI connectivity
-aws sts get-caller-identity
-
-# Expected output:
-{
     "UserId": "AIDACKCEVSQ6C2EXAMPLE",
-    "Account": "123456789012",
+    "Account": "123456789012", 
     "Arn": "arn:aws:iam::123456789012:user/YourUsername"
 }
 ```
 
-### 2. Region Check
-Ensure you're using the correct AWS region:
+## Bước 3: Cài đặt Docker
+
+### 3.1 Cài đặt Docker Desktop
+
+**Windows/macOS:**
+1. Download [Docker Desktop](https://www.docker.com/products/docker-desktop)
+2. Chạy installer
+3. Restart máy tính
+
+**Linux (Ubuntu):**
+```bash
+# Cập nhật packages
+sudo apt update
+
+# Cài đặt Docker
+sudo apt install docker.io
+
+# Thêm user vào docker group
+sudo usermod -aG docker $USER
+
+# Logout và login lại
+```
+
+### 3.2 Xác minh Docker
 
 ```bash
-# Check current region
-aws configure get region
+docker --version
+# Kết quả: Docker version 20.x.x
 
-# List available regions
-aws ec2 describe-regions --query 'Regions[].RegionName' --output table
+docker run hello-world
+# Kết quả: "Hello from Docker!" message
 ```
 
-### 3. VPC Limits Check
-Verify your VPC limits:
+## Bước 4: Chuẩn bị Text Editor
+
+### 4.1 Cài đặt VS Code (khuyến nghị)
+
+1. Download [VS Code](https://code.visualstudio.com/)
+2. Cài đặt extensions hữu ích:
+   - AWS Toolkit
+   - YAML
+   - JSON
+
+### 4.2 Hoặc sử dụng AWS Cloud9
+
+1. Vào [Cloud9 Console](https://console.aws.amazon.com/cloud9/)
+2. Tạo new environment
+3. Chọn instance type: t3.small
+4. Sử dụng Amazon Linux 2
+
+![Cloud9 Environment](/images/cloud9-environment.png)
+
+## Bước 5: Tạo thư mục làm việc
 
 ```bash
-# Check VPC limits
-aws ec2 describe-account-attributes --attribute-names supported-platforms
-aws ec2 describe-vpcs --query 'length(Vpcs)'
+# Tạo thư mục workshop
+mkdir ~/ecs-workshop
+cd ~/ecs-workshop
+
+# Tạo các thư mục con
+mkdir -p {scripts,configs,logs}
+
+# Tạo file environment
+touch workshop-env.sh
 ```
 
-## Workshop Materials
+## Bước 6: Verification Script
 
-### Download Workshop Files
-Clone or download the workshop repository:
+Tạo script để kiểm tra tất cả:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Binh2423/ECS_Advanced_Networking_Workshop.git
-cd ECS_Advanced_Networking_Workshop
+cat > check-prerequisites.sh << 'EOF'
+#!/bin/bash
+echo "=== Kiểm tra Prerequisites ==="
 
-# Or download as ZIP from GitHub
-```
-
-### Directory Structure
-```
-ECS_Advanced_Networking_Workshop/
-├── cloudformation/          # CloudFormation templates
-├── docker/                  # Sample Docker applications
-├── scripts/                 # Helper scripts
-├── docs/                    # Additional documentation
-└── cleanup/                 # Cleanup scripts
-```
-
-## Pre-Workshop Checklist
-
-Before proceeding to the next section, ensure you have completed:
-
-- [ ] AWS account with appropriate permissions
-- [ ] AWS CLI v2 installed and configured
-- [ ] Docker installed and working
-- [ ] Text editor/IDE ready
-- [ ] Workshop materials downloaded
-- [ ] Billing alerts configured (recommended)
-
-### Verification Commands
-Run these commands to verify your setup:
-
-```bash
 # AWS CLI
-aws --version
-aws sts get-caller-identity
+echo "1. AWS CLI:"
+if command -v aws &> /dev/null; then
+    aws --version
+    echo "✅ AWS CLI OK"
+else
+    echo "❌ AWS CLI chưa cài đặt"
+fi
+
+# AWS Credentials
+echo "2. AWS Credentials:"
+if aws sts get-caller-identity &> /dev/null; then
+    echo "✅ AWS credentials OK"
+else
+    echo "❌ AWS credentials chưa cấu hình"
+fi
 
 # Docker
-docker --version
-docker run hello-world
+echo "3. Docker:"
+if command -v docker &> /dev/null; then
+    docker --version
+    echo "✅ Docker OK"
+else
+    echo "❌ Docker chưa cài đặt"
+fi
 
-# Region confirmation
-echo "Using AWS region: $(aws configure get region)"
+# Region
+echo "4. AWS Region:"
+REGION=$(aws configure get region)
+echo "Current region: $REGION"
+if [ "$REGION" = "us-east-1" ]; then
+    echo "✅ Region OK"
+else
+    echo "⚠️  Khuyến nghị sử dụng us-east-1"
+fi
+
+echo "=== Kiểm tra hoàn tất ==="
+EOF
+
+chmod +x check-prerequisites.sh
+./check-prerequisites.sh
 ```
 
-## Troubleshooting Common Issues
+## Bước 7: Tạo IAM User riêng (Tùy chọn)
 
-### AWS CLI Issues
-**Problem**: `aws: command not found`
-**Solution**: Ensure AWS CLI is in your PATH or reinstall
+Nếu bạn muốn tạo user riêng cho workshop:
 
-**Problem**: `Unable to locate credentials`
-**Solution**: Run `aws configure` or check environment variables
+### 7.1 Tạo User qua Console
 
-### Docker Issues
-**Problem**: `docker: permission denied`
-**Solution**: Add user to docker group (Linux) or restart Docker Desktop
+1. Vào [IAM Console](https://console.aws.amazon.com/iam/)
+2. Chọn "Users" → "Add users"
+3. Username: `ecs-workshop-user`
+4. Access type: "Programmatic access"
 
-**Problem**: `Cannot connect to Docker daemon`
-**Solution**: Start Docker service/application
+![Tạo IAM User](/images/iam-create-user.png)
 
-### Permission Issues
-**Problem**: `AccessDenied` errors
-**Solution**: Check IAM permissions or contact your AWS administrator
+### 7.2 Gán quyền
 
-## Next Steps
+1. Attach existing policies directly
+2. Chọn: `AdministratorAccess` (cho workshop)
+3. Hoặc tạo custom policy với quyền cần thiết
 
-Once you've completed all prerequisites, you're ready to move on to [ECS Cluster & VPC Configuration](../3-cluster-setup/) where we'll start building our networking infrastructure.
+![Gán quyền IAM](/images/iam-attach-policies.png)
+
+### 7.3 Lưu credentials
+
+1. Download .csv file
+2. Hoặc copy Access Key ID và Secret Access Key
+3. Cấu hình AWS CLI với credentials mới
+
+## Troubleshooting
+
+### Vấn đề thường gặp:
+
+**AWS CLI không tìm thấy:**
+```bash
+# Kiểm tra PATH
+echo $PATH
+# Thêm AWS CLI vào PATH nếu cần
+export PATH=$PATH:/usr/local/bin
+```
+
+**Docker permission denied (Linux):**
+```bash
+# Thêm user vào docker group
+sudo usermod -aG docker $USER
+# Logout và login lại
+```
+
+**AWS credentials không hoạt động:**
+```bash
+# Kiểm tra file credentials
+cat ~/.aws/credentials
+# Hoặc set environment variables
+export AWS_ACCESS_KEY_ID=your-key
+export AWS_SECRET_ACCESS_KEY=your-secret
+```
+
+## Checklist hoàn thành
+
+- [ ] AWS Account có quyền admin
+- [ ] AWS CLI cài đặt và cấu hình
+- [ ] Docker cài đặt và hoạt động
+- [ ] Text editor sẵn sàng
+- [ ] Thư mục làm việc đã tạo
+- [ ] Verification script chạy thành công
+- [ ] Billing alert đã thiết lập
+
+## Bước tiếp theo
+
+Khi tất cả đã sẵn sàng, chuyển đến [Xây dựng VPC và ECS Cluster](../3-cluster-setup/) để bắt đầu xây dựng infrastructure.
 
 ---
 
-**Need Help?**
-- Check the [AWS CLI User Guide](https://docs.aws.amazon.com/cli/latest/userguide/)
-- Visit [Docker Documentation](https://docs.docker.com/)
-- Join our [AWS Study Group](https://www.facebook.com/groups/awsstudygroupfcj/) for community support
+**💡 Tips:**
+- Bookmark các AWS Console thường dùng
+- Tạo alias cho các commands thường dùng
+- Backup AWS credentials ở nơi an toàn
+
+**🆘 Cần hỗ trợ?** Hỏi trong [AWS Study Group](https://www.facebook.com/groups/awsstudygroupfcj/)

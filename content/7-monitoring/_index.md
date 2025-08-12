@@ -1,244 +1,208 @@
 ---
-title : "Monitoring & Troubleshooting"
+title : "Monitoring và Logging"
 date : "`r Sys.Date()`"
 weight : 7
 chapter : false
 pre : " <b> 7. </b> "
 ---
 
-# Monitoring & Troubleshooting
+# Monitoring và Logging
 
-In this section, we'll implement comprehensive monitoring and observability for our ECS networking setup, learn how to troubleshoot common issues, and set up alerting for proactive problem detection.
+## Tại sao Monitoring quan trọng?
 
-## Monitoring Overview
+Monitoring giống như bảng điều khiển xe hơi - giúp bạn biết hệ thống đang hoạt động như thế nào và cảnh báo khi có vấn đề.
 
-Effective monitoring for ECS networking involves multiple layers:
-- **Infrastructure Monitoring**: VPC, subnets, load balancers, NAT gateways
-- **Application Monitoring**: ECS services, tasks, containers
-- **Network Monitoring**: Traffic flows, connectivity, performance
-- **Security Monitoring**: Access patterns, threats, compliance
-- **Cost Monitoring**: Resource utilization and optimization
+**Lợi ích:**
+- **Proactive:** Phát hiện vấn đề trước khi user phàn nàn
+- **Performance:** Tối ưu hóa hiệu suất dựa trên data
+- **Troubleshooting:** Nhanh chóng tìm ra nguyên nhân sự cố
+- **Capacity Planning:** Dự đoán nhu cầu tài nguyên
 
-## Monitoring Architecture
-
-We'll implement a comprehensive monitoring stack:
+## Monitoring Stack Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CloudWatch Dashboard                     │
-│              (Centralized Monitoring View)                  │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                  CloudWatch Metrics                         │
-│        (ECS, ALB, VPC, Custom Application Metrics)          │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                  CloudWatch Logs                            │
-│         (Application Logs, VPC Flow Logs, ALB Logs)         │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                  CloudWatch Alarms                          │
-│              (Proactive Alert System)                       │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                      SNS Topics                             │
-│              (Notification Distribution)                    │
-└─────────────────────────────────────────────────────────────┘
+Applications → CloudWatch → Dashboards
+     ↓             ↓           ↓
+   Logs        Metrics     Alerts
+     ↓             ↓           ↓
+ Log Groups   Custom      SNS
+              Metrics   Notifications
 ```
 
-## Step 1: Load Environment Variables
+## Bước 1: Chuẩn bị
+
+### 1.1 Load environment
 
 ```bash
-# Load environment variables
-source workshop-resources.env
+cd ~/ecs-workshop
+source workshop-env.sh
 
-# Verify variables are loaded
-echo "VPC ID: $VPC_ID"
-echo "Cluster Name: $CLUSTER_NAME"
-echo "ALB DNS: $ALB_DNS"
+# Kiểm tra resources
+echo "Cluster: $CLUSTER_NAME"
+echo "ALB ARN: $ALB_ARN"
+echo "Services: frontend-service, api-service, db-service"
 ```
 
-## Step 2: Enhanced CloudWatch Logging
+### 1.2 Kiểm tra Log Groups hiện tại
 
-### 2.1 Create Log Groups for Different Components
 ```bash
-# Create log groups for different tiers
-aws logs create-log-group --log-group-name /ecs/workshop/web-tier
-aws logs create-log-group --log-group-name /ecs/workshop/api-tier
-aws logs create-log-group --log-group-name /ecs/workshop/db-tier
-aws logs create-log-group --log-group-name /aws/applicationloadbalancer/ecs-workshop
-
-# Set retention policies
-aws logs put-retention-policy --log-group-name /ecs/workshop/web-tier --retention-in-days 30
-aws logs put-retention-policy --log-group-name /ecs/workshop/api-tier --retention-in-days 30
-aws logs put-retention-policy --log-group-name /ecs/workshop/db-tier --retention-in-days 30
-aws logs put-retention-policy --log-group-name /aws/applicationloadbalancer/ecs-workshop --retention-in-days 7
-
-echo "Enhanced log groups created with retention policies"
+echo "📋 Log Groups hiện tại:"
+aws logs describe-log-groups \
+    --log-group-name-prefix "/ecs/" \
+    --query 'logGroups[].{Name:logGroupName,Size:storedBytes,Retention:retentionInDays}' \
+    --output table
 ```
 
-### 2.2 Enable ALB Access Logs
+## Bước 2: Cấu hình CloudWatch Logs
+
+### 2.1 Tạo thêm Log Groups
+
 ```bash
-# Create S3 bucket for ALB access logs
-ALB_LOGS_BUCKET="ecs-workshop-alb-logs-$(aws sts get-caller-identity --query Account --output text)-$(date +%s)"
-aws s3 mb s3://$ALB_LOGS_BUCKET --region $(aws configure get region)
+echo "📝 Tạo thêm Log Groups..."
 
-# Get ELB service account ID for the region
-ELB_ACCOUNT_ID=$(aws elbv2 describe-account-attributes --attribute-names access-logs.s3.enabled --query 'AccountAttributes[0].AttributeValue' --output text)
+# Application logs
+aws logs create-log-group --log-group-name /ecs/application-logs
+aws logs create-log-group --log-group-name /ecs/error-logs
+aws logs create-log-group --log-group-name /ecs/access-logs
 
-# Create bucket policy for ALB access logs
-cat > alb-logs-bucket-policy.json << EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "AWS": "arn:aws:iam::033677994240:root"
-            },
-            "Action": "s3:PutObject",
-            "Resource": "arn:aws:s3:::$ALB_LOGS_BUCKET/AWSLogs/$(aws sts get-caller-identity --query Account --output text)/*"
-        },
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "delivery.logs.amazonaws.com"
-            },
-            "Action": "s3:PutObject",
-            "Resource": "arn:aws:s3:::$ALB_LOGS_BUCKET/AWSLogs/$(aws sts get-caller-identity --query Account --output text)/*",
-            "Condition": {
-                "StringEquals": {
-                    "s3:x-amz-acl": "bucket-owner-full-control"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Principal": {
-                "Service": "delivery.logs.amazonaws.com"
-            },
-            "Action": "s3:GetBucketAcl",
-            "Resource": "arn:aws:s3:::$ALB_LOGS_BUCKET"
-        }
-    ]
-}
+# Set retention policy (30 days)
+for log_group in "/ecs/application-logs" "/ecs/error-logs" "/ecs/access-logs" "/ecs/frontend" "/ecs/api" "/ecs/database"; do
+    aws logs put-retention-policy \
+        --log-group-name $log_group \
+        --retention-in-days 30
+    echo "✅ Set retention cho $log_group"
+done
+```
+
+### 2.2 Cấu hình Log Insights Queries
+
+```bash
+echo "🔍 Tạo Log Insights queries..."
+
+# Tạo file với các queries hữu ích
+cat > log-insights-queries.txt << 'EOF'
+# Top 10 error messages
+fields @timestamp, @message
+| filter @message like /ERROR/
+| stats count() by @message
+| sort count desc
+| limit 10
+
+# Request latency analysis
+fields @timestamp, @duration
+| filter @type = "REPORT"
+| stats avg(@duration), max(@duration), min(@duration) by bin(5m)
+
+# Failed requests by IP
+fields @timestamp, @message
+| filter @message like /4[0-9][0-9]/ or @message like /5[0-9][0-9]/
+| parse @message /(?<ip>\d+\.\d+\.\d+\.\d+)/
+| stats count() by ip
+| sort count desc
+
+# Memory usage over time
+fields @timestamp, @maxMemoryUsed
+| filter @type = "REPORT"
+| stats avg(@maxMemoryUsed) by bin(5m)
 EOF
 
-aws s3api put-bucket-policy --bucket $ALB_LOGS_BUCKET --policy file://alb-logs-bucket-policy.json
-
-# Enable ALB access logs
-aws elbv2 modify-load-balancer-attributes \
-    --load-balancer-arn $ALB_ARN \
-    --attributes Key=access_logs.s3.enabled,Value=true \
-              Key=access_logs.s3.bucket,Value=$ALB_LOGS_BUCKET \
-              Key=access_logs.s3.prefix,Value=alb-logs
-
-echo "ALB access logs enabled to S3 bucket: $ALB_LOGS_BUCKET"
+echo "✅ Log Insights queries đã được tạo trong file log-insights-queries.txt"
 ```
 
-## Step 3: Custom CloudWatch Metrics
+## Bước 3: Custom Metrics
 
-### 3.1 Create Custom Metrics for Application Performance
+### 3.1 Tạo Custom Metrics Script
+
 ```bash
-# Create custom namespace for application metrics
-NAMESPACE="ECS/Workshop"
+echo "📊 Tạo Custom Metrics script..."
 
-# Example: Put custom metric for application response time
-aws cloudwatch put-metric-data \
-    --namespace $NAMESPACE \
-    --metric-data MetricName=ResponseTime,Value=150,Unit=Milliseconds,Dimensions=Service=web-service,Environment=workshop
+cat > custom-metrics.sh << 'EOF'
+#!/bin/bash
 
-# Example: Put custom metric for database connections
-aws cloudwatch put-metric-data \
-    --namespace $NAMESPACE \
-    --metric-data MetricName=DatabaseConnections,Value=5,Unit=Count,Dimensions=Service=api-service,Environment=workshop
-
-echo "Custom metrics published to CloudWatch"
-```
-
-### 3.2 Create CloudWatch Agent Configuration
-```bash
-# Create CloudWatch agent configuration for detailed monitoring
-cat > cloudwatch-agent-config.json << EOF
-{
-    "agent": {
-        "metrics_collection_interval": 60,
-        "run_as_user": "cwagent"
-    },
-    "metrics": {
-        "namespace": "ECS/Workshop/DetailedMonitoring",
-        "metrics_collected": {
-            "cpu": {
-                "measurement": [
-                    "cpu_usage_idle",
-                    "cpu_usage_iowait",
-                    "cpu_usage_user",
-                    "cpu_usage_system"
-                ],
-                "metrics_collection_interval": 60
-            },
-            "disk": {
-                "measurement": [
-                    "used_percent"
-                ],
-                "metrics_collection_interval": 60,
-                "resources": [
-                    "*"
-                ]
-            },
-            "diskio": {
-                "measurement": [
-                    "io_time"
-                ],
-                "metrics_collection_interval": 60,
-                "resources": [
-                    "*"
-                ]
-            },
-            "mem": {
-                "measurement": [
-                    "mem_used_percent"
-                ],
-                "metrics_collection_interval": 60
-            },
-            "netstat": {
-                "measurement": [
-                    "tcp_established",
-                    "tcp_time_wait"
-                ],
-                "metrics_collection_interval": 60
-            }
-        }
-    },
-    "logs": {
-        "logs_collected": {
-            "files": {
-                "collect_list": [
-                    {
-                        "file_path": "/var/log/messages",
-                        "log_group_name": "/ecs/workshop/system",
-                        "log_stream_name": "{instance_id}"
-                    }
-                ]
-            }
-        }
-    }
+# Function to send custom metric
+send_metric() {
+    local metric_name=$1
+    local value=$2
+    local unit=$3
+    local namespace=$4
+    
+    aws cloudwatch put-metric-data \
+        --namespace "$namespace" \
+        --metric-data MetricName="$metric_name",Value="$value",Unit="$unit"
 }
+
+# Get ECS service metrics
+get_ecs_metrics() {
+    local cluster_name=$1
+    local service_name=$2
+    
+    # Get running task count
+    running_tasks=$(aws ecs describe-services \
+        --cluster $cluster_name \
+        --services $service_name \
+        --query 'services[0].runningCount' \
+        --output text)
+    
+    # Get desired task count
+    desired_tasks=$(aws ecs describe-services \
+        --cluster $cluster_name \
+        --services $service_name \
+        --query 'services[0].desiredCount' \
+        --output text)
+    
+    # Send metrics
+    send_metric "RunningTasks" $running_tasks "Count" "ECS/Workshop"
+    send_metric "DesiredTasks" $desired_tasks "Count" "ECS/Workshop"
+    
+    # Calculate availability percentage
+    if [ $desired_tasks -gt 0 ]; then
+        availability=$(echo "scale=2; $running_tasks * 100 / $desired_tasks" | bc)
+        send_metric "ServiceAvailability" $availability "Percent" "ECS/Workshop"
+    fi
+}
+
+# Get ALB metrics
+get_alb_metrics() {
+    local alb_arn=$1
+    
+    # Get healthy target count
+    healthy_targets=$(aws elbv2 describe-target-health \
+        --target-group-arn $(aws elbv2 describe-target-groups --load-balancer-arn $alb_arn --query 'TargetGroups[0].TargetGroupArn' --output text) \
+        --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' \
+        --output text)
+    
+    send_metric "HealthyTargets" $healthy_targets "Count" "ALB/Workshop"
+}
+
+# Main execution
+if [ "$1" = "run" ]; then
+    source workshop-env.sh
+    get_ecs_metrics $CLUSTER_NAME "frontend-service"
+    get_ecs_metrics $CLUSTER_NAME "api-service"
+    get_alb_metrics $ALB_ARN
+    echo "✅ Custom metrics sent"
+fi
 EOF
 
-echo "CloudWatch agent configuration created"
+chmod +x custom-metrics.sh
+echo "✅ Custom metrics script đã tạo"
 ```
 
-## Step 4: CloudWatch Dashboards
+### 3.2 Test Custom Metrics
 
-### 4.1 Create Comprehensive Dashboard
 ```bash
-# Create CloudWatch dashboard
-cat > dashboard-body.json << EOF
+echo "🧪 Test custom metrics..."
+./custom-metrics.sh run
+```
+
+## Bước 4: CloudWatch Dashboards
+
+### 4.1 Tạo ECS Dashboard
+
+```bash
+echo "📊 Tạo ECS Dashboard..."
+
+cat > ecs-dashboard.json << EOF
 {
     "widgets": [
         {
@@ -249,7 +213,7 @@ cat > dashboard-body.json << EOF
             "height": 6,
             "properties": {
                 "metrics": [
-                    [ "AWS/ECS", "CPUUtilization", "ServiceName", "web-service", "ClusterName", "$CLUSTER_NAME" ],
+                    [ "AWS/ECS", "CPUUtilization", "ServiceName", "frontend-service", "ClusterName", "$CLUSTER_NAME" ],
                     [ ".", "MemoryUtilization", ".", ".", ".", "." ],
                     [ ".", "CPUUtilization", "ServiceName", "api-service", "ClusterName", "$CLUSTER_NAME" ],
                     [ ".", "MemoryUtilization", ".", ".", ".", "." ]
@@ -278,39 +242,20 @@ cat > dashboard-body.json << EOF
                 "view": "timeSeries",
                 "stacked": false,
                 "region": "$(aws configure get region)",
-                "title": "Application Load Balancer Metrics",
-                "period": 300
-            }
-        },
-        {
-            "type": "metric",
-            "x": 0,
-            "y": 6,
-            "width": 12,
-            "height": 6,
-            "properties": {
-                "metrics": [
-                    [ "AWS/ECS", "RunningTaskCount", "ServiceName", "web-service", "ClusterName", "$CLUSTER_NAME" ],
-                    [ ".", ".", "ServiceName", "api-service", "ClusterName", "$CLUSTER_NAME" ],
-                    [ ".", ".", "ServiceName", "db-service", "ClusterName", "$CLUSTER_NAME" ]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "$(aws configure get region)",
-                "title": "ECS Running Tasks",
+                "title": "ALB Metrics",
                 "period": 300
             }
         },
         {
             "type": "log",
-            "x": 12,
+            "x": 0,
             "y": 6,
-            "width": 12,
+            "width": 24,
             "height": 6,
             "properties": {
-                "query": "SOURCE '/ecs/web-app' | fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+                "query": "SOURCE '/ecs/frontend' | SOURCE '/ecs/api'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
                 "region": "$(aws configure get region)",
-                "title": "Recent Application Errors",
+                "title": "Recent Errors",
                 "view": "table"
             }
         }
@@ -318,380 +263,580 @@ cat > dashboard-body.json << EOF
 }
 EOF
 
-# Create the dashboard
+# Tạo dashboard
 aws cloudwatch put-dashboard \
-    --dashboard-name "ECS-Workshop-Monitoring" \
-    --dashboard-body file://dashboard-body.json
+    --dashboard-name "ECS-Workshop-Dashboard" \
+    --dashboard-body file://ecs-dashboard.json
 
-echo "CloudWatch dashboard created: ECS-Workshop-Monitoring"
+echo "✅ ECS Dashboard đã tạo"
 ```
 
-## Step 5: CloudWatch Alarms
+### 4.2 Tạo Network Dashboard
 
-### 5.1 Create Alarms for ECS Services
 ```bash
-# Create SNS topic for alerts
-ALERT_TOPIC_ARN=$(aws sns create-topic \
-    --name ecs-workshop-alerts \
-    --tags Key=Environment,Value=workshop Key=Purpose,Value=monitoring \
-    --query 'TopicArn' \
-    --output text)
+echo "🌐 Tạo Network Dashboard..."
 
-# Subscribe email to topic (replace with your email)
-# aws sns subscribe \
-#     --topic-arn $ALERT_TOPIC_ARN \
-#     --protocol email \
-#     --notification-endpoint your-email@example.com
+cat > network-dashboard.json << EOF
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ECS", "NetworkRxBytes", "ServiceName", "frontend-service", "ClusterName", "$CLUSTER_NAME" ],
+                    [ ".", "NetworkTxBytes", ".", ".", ".", "." ],
+                    [ ".", "NetworkRxBytes", "ServiceName", "api-service", "ClusterName", "$CLUSTER_NAME" ],
+                    [ ".", "NetworkTxBytes", ".", ".", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "$(aws configure get region)",
+                "title": "Network Traffic",
+                "period": 300
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    [ "AWS/ApplicationELB", "ActiveConnectionCount", "LoadBalancer", "$(echo $ALB_ARN | cut -d'/' -f2-)" ],
+                    [ ".", "NewConnectionCount", ".", "." ],
+                    [ ".", "ConsumedLCUs", ".", "." ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "$(aws configure get region)",
+                "title": "Connection Metrics",
+                "period": 300
+            }
+        }
+    ]
+}
+EOF
 
-# High CPU utilization alarm
+aws cloudwatch put-dashboard \
+    --dashboard-name "ECS-Network-Dashboard" \
+    --dashboard-body file://network-dashboard.json
+
+echo "✅ Network Dashboard đã tạo"
+```
+
+## Bước 5: CloudWatch Alarms
+
+### 5.1 Tạo ECS Service Alarms
+
+```bash
+echo "🚨 Tạo ECS Service Alarms..."
+
+# High CPU alarm
 aws cloudwatch put-metric-alarm \
-    --alarm-name "ECS-Workshop-HighCPU" \
-    --alarm-description "ECS service high CPU utilization" \
+    --alarm-name "ECS-Frontend-High-CPU" \
+    --alarm-description "Frontend service high CPU utilization" \
     --metric-name CPUUtilization \
     --namespace AWS/ECS \
     --statistic Average \
     --period 300 \
     --threshold 80 \
     --comparison-operator GreaterThanThreshold \
-    --dimensions Name=ServiceName,Value=web-service Name=ClusterName,Value=$CLUSTER_NAME \
     --evaluation-periods 2 \
-    --alarm-actions $ALERT_TOPIC_ARN
+    --dimensions Name=ServiceName,Value=frontend-service Name=ClusterName,Value=$CLUSTER_NAME \
+    --alarm-actions arn:aws:sns:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):ecs-workshop-alerts
 
-# High memory utilization alarm
+# High Memory alarm
 aws cloudwatch put-metric-alarm \
-    --alarm-name "ECS-Workshop-HighMemory" \
-    --alarm-description "ECS service high memory utilization" \
+    --alarm-name "ECS-Frontend-High-Memory" \
+    --alarm-description "Frontend service high memory utilization" \
     --metric-name MemoryUtilization \
     --namespace AWS/ECS \
     --statistic Average \
     --period 300 \
     --threshold 85 \
     --comparison-operator GreaterThanThreshold \
-    --dimensions Name=ServiceName,Value=web-service Name=ClusterName,Value=$CLUSTER_NAME \
     --evaluation-periods 2 \
-    --alarm-actions $ALERT_TOPIC_ARN
+    --dimensions Name=ServiceName,Value=frontend-service Name=ClusterName,Value=$CLUSTER_NAME
 
 # Service task count alarm
 aws cloudwatch put-metric-alarm \
-    --alarm-name "ECS-Workshop-LowTaskCount" \
-    --alarm-description "ECS service running fewer tasks than desired" \
+    --alarm-name "ECS-Frontend-Low-Task-Count" \
+    --alarm-description "Frontend service running fewer tasks than desired" \
     --metric-name RunningTaskCount \
-    --namespace AWS/ECS \
+    --namespace ECS/Workshop \
     --statistic Average \
     --period 300 \
     --threshold 1 \
     --comparison-operator LessThanThreshold \
-    --dimensions Name=ServiceName,Value=web-service Name=ClusterName,Value=$CLUSTER_NAME \
-    --evaluation-periods 1 \
-    --alarm-actions $ALERT_TOPIC_ARN
+    --evaluation-periods 1
 
-echo "ECS service alarms created"
+echo "✅ ECS Service alarms đã tạo"
 ```
 
-### 5.2 Create Alarms for Load Balancer
-```bash
-# ALB high response time alarm
-aws cloudwatch put-metric-alarm \
-    --alarm-name "ALB-Workshop-HighResponseTime" \
-    --alarm-description "ALB high response time" \
-    --metric-name TargetResponseTime \
-    --namespace AWS/ApplicationELB \
-    --statistic Average \
-    --period 300 \
-    --threshold 1.0 \
-    --comparison-operator GreaterThanThreshold \
-    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-) \
-    --evaluation-periods 2 \
-    --alarm-actions $ALERT_TOPIC_ARN
+### 5.2 Tạo ALB Alarms
 
-# ALB high 5xx error rate alarm
+```bash
+echo "🚨 Tạo ALB Alarms..."
+
+# High error rate alarm
 aws cloudwatch put-metric-alarm \
-    --alarm-name "ALB-Workshop-High5xxErrors" \
-    --alarm-description "ALB high 5xx error rate" \
-    --metric-name HTTPCode_Target_5XX_Count \
+    --alarm-name "ALB-High-4XX-Error-Rate" \
+    --alarm-description "High 4XX error rate on ALB" \
+    --metric-name HTTPCode_Target_4XX_Count \
     --namespace AWS/ApplicationELB \
     --statistic Sum \
     --period 300 \
     --threshold 10 \
     --comparison-operator GreaterThanThreshold \
-    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-) \
-    --evaluation-periods 1 \
-    --alarm-actions $ALERT_TOPIC_ARN
+    --evaluation-periods 2 \
+    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-)
 
-# ALB unhealthy target alarm
+# High response time alarm
 aws cloudwatch put-metric-alarm \
-    --alarm-name "ALB-Workshop-UnhealthyTargets" \
-    --alarm-description "ALB has unhealthy targets" \
+    --alarm-name "ALB-High-Response-Time" \
+    --alarm-description "High response time on ALB" \
+    --metric-name TargetResponseTime \
+    --namespace AWS/ApplicationELB \
+    --statistic Average \
+    --period 300 \
+    --threshold 2.0 \
+    --comparison-operator GreaterThanThreshold \
+    --evaluation-periods 3 \
+    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-)
+
+# Unhealthy targets alarm
+aws cloudwatch put-metric-alarm \
+    --alarm-name "ALB-Unhealthy-Targets" \
+    --alarm-description "Unhealthy targets detected" \
     --metric-name UnHealthyHostCount \
     --namespace AWS/ApplicationELB \
     --statistic Average \
     --period 300 \
-    --threshold 0 \
-    --comparison-operator GreaterThanThreshold \
-    --dimensions Name=TargetGroup,Value=$(echo $WEB_TG_ARN | cut -d'/' -f2-) \
+    --threshold 1 \
+    --comparison-operator GreaterThanOrEqualToThreshold \
     --evaluation-periods 1 \
-    --alarm-actions $ALERT_TOPIC_ARN
+    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-)
 
-echo "ALB alarms created"
+echo "✅ ALB alarms đã tạo"
 ```
 
-## Step 6: Network Monitoring
+## Bước 6: Log Analysis và Monitoring
 
-### 6.1 VPC Flow Logs Analysis
+### 6.1 Tạo Log Metric Filters
+
 ```bash
-# Create CloudWatch Insights queries for VPC Flow Logs analysis
-echo "VPC Flow Logs Analysis Queries:"
+echo "📈 Tạo Log Metric Filters..."
 
-echo "1. Top talkers by bytes:"
-echo "fields @timestamp, srcaddr, dstaddr, bytes"
-echo "| filter bytes > 1000"
-echo "| stats sum(bytes) as total_bytes by srcaddr, dstaddr"
-echo "| sort total_bytes desc"
-echo "| limit 10"
+# Error count metric filter
+aws logs put-metric-filter \
+    --log-group-name "/ecs/frontend" \
+    --filter-name "ErrorCount" \
+    --filter-pattern "ERROR" \
+    --metric-transformations \
+        metricName=ErrorCount,metricNamespace=ECS/Workshop,metricValue=1
 
-echo ""
-echo "2. Rejected connections:"
-echo "fields @timestamp, srcaddr, dstaddr, srcport, dstport, action"
-echo "| filter action = \"REJECT\""
-echo "| stats count() as rejected_count by srcaddr, dstaddr, dstport"
-echo "| sort rejected_count desc"
+# 404 errors metric filter
+aws logs put-metric-filter \
+    --log-group-name "/ecs/frontend" \
+    --filter-name "404Errors" \
+    --filter-pattern "[timestamp, request_id, level=\"ERROR\", message=\"*404*\"]" \
+    --metric-transformations \
+        metricName=404Errors,metricNamespace=ECS/Workshop,metricValue=1
 
-echo ""
-echo "3. Traffic by protocol:"
-echo "fields @timestamp, protocol, bytes"
-echo "| stats sum(bytes) as total_bytes by protocol"
-echo "| sort total_bytes desc"
+# Response time metric filter (giả định log format)
+aws logs put-metric-filter \
+    --log-group-name "/ecs/api" \
+    --filter-name "ResponseTime" \
+    --filter-pattern "[timestamp, request_id, level, message, response_time]" \
+    --metric-transformations \
+        metricName=ResponseTime,metricNamespace=ECS/Workshop,metricValue='$response_time'
+
+echo "✅ Log metric filters đã tạo"
 ```
 
-### 6.2 Create Network Performance Alarms
-```bash
-# NAT Gateway high bandwidth utilization
-aws cloudwatch put-metric-alarm \
-    --alarm-name "NAT-Gateway-HighBandwidth" \
-    --alarm-description "NAT Gateway high bandwidth utilization" \
-    --metric-name BytesOutToDestination \
-    --namespace AWS/NATGateway \
-    --statistic Sum \
-    --period 300 \
-    --threshold 1000000000 \
-    --comparison-operator GreaterThanThreshold \
-    --dimensions Name=NatGatewayId,Value=$NAT_GW_1 \
-    --evaluation-periods 2 \
-    --alarm-actions $ALERT_TOPIC_ARN
-
-# VPC endpoint connection errors
-aws cloudwatch put-metric-alarm \
-    --alarm-name "VPC-Endpoint-Errors" \
-    --alarm-description "VPC endpoint connection errors" \
-    --metric-name ErrorCount \
-    --namespace AWS/VpcEndpoint \
-    --statistic Sum \
-    --period 300 \
-    --threshold 5 \
-    --comparison-operator GreaterThanThreshold \
-    --dimensions Name=VpcEndpointId,Value=$ECS_ENDPOINT \
-    --evaluation-periods 1 \
-    --alarm-actions $ALERT_TOPIC_ARN
-
-echo "Network performance alarms created"
-```
-
-## Step 7: Application Performance Monitoring (APM)
-
-### 7.1 Enable X-Ray Tracing
-```bash
-# Create X-Ray service map
-aws xray create-service-map \
-    --service-map-name "ECS-Workshop-ServiceMap" \
-    --tags Key=Environment,Value=workshop
-
-# Enable X-Ray tracing for ECS services (requires application code changes)
-echo "To enable X-Ray tracing, add the following to your task definitions:"
-echo "{"
-echo "  \"name\": \"xray-daemon\","
-echo "  \"image\": \"amazon/aws-xray-daemon:latest\","
-echo "  \"cpu\": 32,"
-echo "  \"memoryReservation\": 256,"
-echo "  \"portMappings\": ["
-echo "    {"
-echo "      \"containerPort\": 2000,"
-echo "      \"protocol\": \"udp\""
-echo "    }"
-echo "  ]"
-echo "}"
-
-echo "X-Ray setup information provided"
-```
-
-## Step 8: Cost Monitoring
-
-### 8.1 Create Cost Alarms
-```bash
-# Create billing alarm (requires billing metrics to be enabled)
-aws cloudwatch put-metric-alarm \
-    --alarm-name "ECS-Workshop-CostAlert" \
-    --alarm-description "Alert when workshop costs exceed threshold" \
-    --metric-name EstimatedCharges \
-    --namespace AWS/Billing \
-    --statistic Maximum \
-    --period 86400 \
-    --threshold 50 \
-    --comparison-operator GreaterThanThreshold \
-    --dimensions Name=Currency,Value=USD \
-    --evaluation-periods 1 \
-    --alarm-actions $ALERT_TOPIC_ARN
-
-echo "Cost monitoring alarm created"
-```
-
-## Step 9: Update Environment Variables
+### 6.2 Tạo Log Subscription Filter
 
 ```bash
-# Update environment variables file
-cat >> workshop-resources.env << EOF
-export ALB_LOGS_BUCKET=$ALB_LOGS_BUCKET
-export ALERT_TOPIC_ARN=$ALERT_TOPIC_ARN
-export NAMESPACE=$NAMESPACE
+echo "📡 Tạo Log Subscription Filter..."
+
+# Tạo Lambda function để process logs (optional)
+cat > log-processor.py << 'EOF'
+import json
+import gzip
+import base64
+import boto3
+
+def lambda_handler(event, context):
+    # Decode CloudWatch Logs data
+    cw_data = event['awslogs']['data']
+    compressed_payload = base64.b64decode(cw_data)
+    uncompressed_payload = gzip.decompress(compressed_payload)
+    log_data = json.loads(uncompressed_payload)
+    
+    # Process log events
+    for log_event in log_data['logEvents']:
+        message = log_event['message']
+        timestamp = log_event['timestamp']
+        
+        # Custom processing logic here
+        if 'ERROR' in message:
+            print(f"Error detected at {timestamp}: {message}")
+            # Send to SNS, store in DynamoDB, etc.
+    
+    return {'statusCode': 200}
 EOF
 
-echo "Monitoring resources added to workshop-resources.env"
+echo "✅ Log processor template đã tạo"
 ```
 
-## Troubleshooting Guide
+## Bước 7: Performance Monitoring
 
-### Common ECS Networking Issues
+### 7.1 Tạo Performance Monitoring Script
 
-#### 1. Service Discovery Not Working
-**Symptoms**: Services cannot resolve each other via DNS names
-
-**Troubleshooting Steps**:
 ```bash
-# Check service discovery configuration
-aws servicediscovery get-service --id $WEB_SERVICE_ID
+echo "⚡ Tạo Performance Monitoring script..."
 
-# Check if instances are registered
-aws servicediscovery list-instances --service-id $WEB_SERVICE_ID
+cat > performance-monitor.sh << 'EOF'
+#!/bin/bash
 
-# Test DNS resolution from within a task
-# aws ecs execute-command --cluster $CLUSTER_NAME --task TASK_ARN --container CONTAINER_NAME --interactive --command "/bin/bash"
-# nslookup web.workshop.local
-```
+# Load environment
+source workshop-env.sh
 
-**Common Causes**:
-- VPC DNS resolution not enabled
-- Service registry misconfiguration
-- Network connectivity issues
+echo "🔍 ECS Performance Report - $(date)"
+echo "=================================="
 
-#### 2. Load Balancer Health Check Failures
-**Symptoms**: Targets showing as unhealthy in target groups
+# ECS Service Status
+echo "📊 ECS Service Status:"
+aws ecs describe-services \
+    --cluster $CLUSTER_NAME \
+    --services frontend-service api-service db-service \
+    --query 'services[].{
+        Name:serviceName,
+        Status:status,
+        Running:runningCount,
+        Desired:desiredCount,
+        Pending:pendingCount
+    }' --output table
 
-**Troubleshooting Steps**:
-```bash
-# Check target health
-aws elbv2 describe-target-health --target-group-arn $WEB_TG_ARN
+# ALB Target Health
+echo "🎯 ALB Target Health:"
+for tg_arn in $FRONTEND_TG_ARN $API_TG_ARN; do
+    tg_name=$(aws elbv2 describe-target-groups --target-group-arns $tg_arn --query 'TargetGroups[0].TargetGroupName' --output text)
+    echo "Target Group: $tg_name"
+    aws elbv2 describe-target-health --target-group-arn $tg_arn \
+        --query 'TargetHealthDescriptions[].{
+            Target:Target.Id,
+            Port:Target.Port,
+            Health:TargetHealth.State,
+            Reason:TargetHealth.Reason
+        }' --output table
+    echo ""
+done
 
-# Check security group rules
-aws ec2 describe-security-groups --group-ids $ECS_SG
+# Recent CloudWatch Metrics
+echo "📈 Recent Metrics (Last 5 minutes):"
+end_time=$(date -u +%Y-%m-%dT%H:%M:%S)
+start_time=$(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S)
 
-# Check health check configuration
-aws elbv2 describe-target-groups --target-group-arns $WEB_TG_ARN
-```
+# CPU Utilization
+echo "CPU Utilization:"
+aws cloudwatch get-metric-statistics \
+    --namespace AWS/ECS \
+    --metric-name CPUUtilization \
+    --dimensions Name=ServiceName,Value=frontend-service Name=ClusterName,Value=$CLUSTER_NAME \
+    --start-time $start_time \
+    --end-time $end_time \
+    --period 300 \
+    --statistics Average \
+    --query 'Datapoints[0].Average' \
+    --output text
 
-**Common Causes**:
-- Security group blocking health check traffic
-- Application not responding on health check path
-- Health check timeout too short
+# Memory Utilization
+echo "Memory Utilization:"
+aws cloudwatch get-metric-statistics \
+    --namespace AWS/ECS \
+    --metric-name MemoryUtilization \
+    --dimensions Name=ServiceName,Value=frontend-service Name=ClusterName,Value=$CLUSTER_NAME \
+    --start-time $start_time \
+    --end-time $end_time \
+    --period 300 \
+    --statistics Average \
+    --query 'Datapoints[0].Average' \
+    --output text
 
-#### 3. Tasks Cannot Pull Images
-**Symptoms**: Tasks fail to start with image pull errors
-
-**Troubleshooting Steps**:
-```bash
-# Check VPC endpoints
-aws ec2 describe-vpc-endpoints --vpc-endpoint-ids $ECR_API_ENDPOINT $ECR_DKR_ENDPOINT
-
-# Check NAT Gateway connectivity
-aws ec2 describe-nat-gateways --nat-gateway-ids $NAT_GW_1
-
-# Check task execution role permissions
-aws iam get-role --role-name ecsTaskExecutionRole
-```
-
-**Common Causes**:
-- Missing VPC endpoints for ECR
-- NAT Gateway issues
-- Insufficient IAM permissions
-
-#### 4. High Network Latency
-**Symptoms**: Slow response times between services
-
-**Troubleshooting Steps**:
-```bash
-# Check VPC Flow Logs for network patterns
-aws logs start-query \
-    --log-group-name /aws/vpc/flowlogs \
-    --start-time $(date -d '1 hour ago' +%s) \
-    --end-time $(date +%s) \
-    --query-string 'fields @timestamp, srcaddr, dstaddr, bytes | filter bytes > 1000 | sort @timestamp desc'
-
-# Monitor ALB metrics
+# ALB Request Count
+echo "ALB Request Count:"
 aws cloudwatch get-metric-statistics \
     --namespace AWS/ApplicationELB \
-    --metric-name TargetResponseTime \
+    --metric-name RequestCount \
     --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-) \
-    --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
-    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+    --start-time $start_time \
+    --end-time $end_time \
     --period 300 \
-    --statistics Average
+    --statistics Sum \
+    --query 'Datapoints[0].Sum' \
+    --output text
+
+echo "=================================="
+EOF
+
+chmod +x performance-monitor.sh
+echo "✅ Performance monitoring script đã tạo"
 ```
 
-**Common Causes**:
-- Cross-AZ traffic
-- Network congestion
-- Application performance issues
+### 7.2 Test Performance Monitor
 
-### Monitoring Best Practices
+```bash
+echo "🧪 Test performance monitor..."
+./performance-monitor.sh
+```
 
-1. **Set Up Comprehensive Dashboards**
-   - Include infrastructure, application, and business metrics
-   - Use appropriate time ranges and aggregations
-   - Create role-based dashboards
+## Bước 8: Automated Monitoring
 
-2. **Implement Effective Alerting**
-   - Set meaningful thresholds based on baselines
-   - Use composite alarms for complex conditions
-   - Implement escalation procedures
+### 8.1 Tạo CloudWatch Events Rule
 
-3. **Log Management**
-   - Use structured logging
-   - Set appropriate retention policies
-   - Implement log aggregation and analysis
+```bash
+echo "⏰ Tạo CloudWatch Events Rule..."
 
-4. **Performance Monitoring**
-   - Monitor key performance indicators (KPIs)
-   - Set up synthetic monitoring
-   - Track user experience metrics
+# Tạo rule để chạy performance monitor mỗi 5 phút
+aws events put-rule \
+    --name "ECS-Performance-Monitor" \
+    --description "Run performance monitoring every 5 minutes" \
+    --schedule-expression "rate(5 minutes)" \
+    --state ENABLED
 
-## Next Steps
+echo "✅ CloudWatch Events rule đã tạo"
+```
 
-Excellent! You've implemented comprehensive monitoring and troubleshooting capabilities for your ECS networking setup. Your monitoring stack now includes:
+### 8.2 Tạo Health Check Script
 
-- ✅ Enhanced CloudWatch logging and metrics
-- ✅ Custom dashboards for visualization
-- ✅ Proactive alerting system
-- ✅ Network performance monitoring
-- ✅ Cost monitoring and optimization
-- ✅ Troubleshooting guides and procedures
+```bash
+echo "🏥 Tạo Health Check script..."
 
-Finally, let's move on to [Clean up Resources](../8-cleanup/) where we'll properly clean up all the resources we've created to avoid ongoing charges.
+cat > health-check.sh << 'EOF'
+#!/bin/bash
+
+# Load environment
+source workshop-env.sh
+
+# Health check function
+check_service_health() {
+    local service_name=$1
+    local expected_count=$2
+    
+    running_count=$(aws ecs describe-services \
+        --cluster $CLUSTER_NAME \
+        --services $service_name \
+        --query 'services[0].runningCount' \
+        --output text)
+    
+    if [ "$running_count" -eq "$expected_count" ]; then
+        echo "✅ $service_name: $running_count/$expected_count tasks running"
+        return 0
+    else
+        echo "❌ $service_name: $running_count/$expected_count tasks running"
+        return 1
+    fi
+}
+
+# Check ALB health
+check_alb_health() {
+    response=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/health)
+    if [ "$response" -eq 200 ]; then
+        echo "✅ ALB health check: OK"
+        return 0
+    else
+        echo "❌ ALB health check: Failed (HTTP $response)"
+        return 1
+    fi
+}
+
+# Main health check
+echo "🏥 Health Check Report - $(date)"
+echo "================================"
+
+health_status=0
+
+check_service_health "frontend-service" 2 || health_status=1
+check_service_health "api-service" 2 || health_status=1
+check_service_health "db-service" 1 || health_status=1
+check_alb_health || health_status=1
+
+if [ $health_status -eq 0 ]; then
+    echo "✅ All systems healthy"
+else
+    echo "❌ Some systems unhealthy"
+    # Send alert (implement SNS notification here)
+fi
+
+echo "================================"
+exit $health_status
+EOF
+
+chmod +x health-check.sh
+echo "✅ Health check script đã tạo"
+```
+
+## Bước 9: Xem Monitoring Results
+
+### 9.1 Xem Dashboards
+
+```bash
+echo "📊 Dashboard URLs:"
+REGION=$(aws configure get region)
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+echo "ECS Dashboard: https://$REGION.console.aws.amazon.com/cloudwatch/home?region=$REGION#dashboards:name=ECS-Workshop-Dashboard"
+echo "Network Dashboard: https://$REGION.console.aws.amazon.com/cloudwatch/home?region=$REGION#dashboards:name=ECS-Network-Dashboard"
+```
+
+### 9.2 Xem Alarms
+
+```bash
+echo "🚨 Current Alarms Status:"
+aws cloudwatch describe-alarms \
+    --alarm-names "ECS-Frontend-High-CPU" "ALB-High-4XX-Error-Rate" "ALB-High-Response-Time" \
+    --query 'MetricAlarms[].{Name:AlarmName,State:StateValue,Reason:StateReason}' \
+    --output table
+```
+
+### 9.3 Test Monitoring với Load
+
+```bash
+echo "⚡ Tạo load để test monitoring..."
+
+# Tạo load test script
+cat > load-test.sh << 'EOF'
+#!/bin/bash
+source workshop-env.sh
+
+echo "🚀 Starting load test..."
+for i in {1..100}; do
+    curl -s http://$ALB_DNS/ > /dev/null &
+    curl -s http://$ALB_DNS/api/ > /dev/null &
+    
+    if [ $((i % 10)) -eq 0 ]; then
+        echo "Sent $i requests..."
+    fi
+    
+    sleep 0.1
+done
+
+wait
+echo "✅ Load test completed"
+EOF
+
+chmod +x load-test.sh
+
+# Chạy load test
+./load-test.sh
+```
+
+## Bước 10: Monitoring Best Practices
+
+### 10.1 Monitoring Checklist
+
+```bash
+echo "📋 Monitoring Best Practices Checklist:"
+cat << 'EOF'
+✅ Monitoring Checklist:
+□ CloudWatch Logs configured with retention policies
+□ Custom metrics for business KPIs
+□ Dashboards for different stakeholders
+□ Alarms for critical metrics
+□ Log metric filters for error tracking
+□ Performance monitoring automation
+□ Health checks for all services
+□ Network monitoring (VPC Flow Logs)
+□ Security monitoring (failed logins, unusual patterns)
+□ Cost monitoring and alerts
+□ Documentation for runbooks
+□ Regular review and optimization of metrics
+EOF
+```
+
+### 10.2 Monitoring Summary
+
+```bash
+echo "📊 Monitoring Summary:"
+echo "====================="
+
+echo "Log Groups:"
+aws logs describe-log-groups --log-group-name-prefix "/ecs/" --query 'length(logGroups)'
+
+echo "Dashboards:"
+aws cloudwatch list-dashboards --query 'length(DashboardEntries)'
+
+echo "Alarms:"
+aws cloudwatch describe-alarms --query 'length(MetricAlarms)'
+
+echo "Metric Filters:"
+aws logs describe-metric-filters --query 'length(metricFilters)'
+```
+
+## Troubleshooting Monitoring
+
+### Vấn đề thường gặp:
+
+**Metrics không hiển thị:**
+```bash
+# Kiểm tra metric namespace
+aws cloudwatch list-metrics --namespace "ECS/Workshop"
+
+# Kiểm tra IAM permissions
+aws iam simulate-principal-policy \
+    --policy-source-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsTaskRole \
+    --action-names cloudwatch:PutMetricData
+```
+
+**Alarms không trigger:**
+```bash
+# Kiểm tra alarm history
+aws cloudwatch describe-alarm-history --alarm-name "ECS-Frontend-High-CPU"
+
+# Test alarm manually
+aws cloudwatch set-alarm-state \
+    --alarm-name "ECS-Frontend-High-CPU" \
+    --state-value ALARM \
+    --state-reason "Testing alarm"
+```
+
+**Logs không xuất hiện:**
+```bash
+# Kiểm tra log group permissions
+aws logs describe-log-groups --log-group-name-prefix "/ecs/"
+
+# Kiểm tra task definition log configuration
+aws ecs describe-task-definition --task-definition frontend-app --query 'taskDefinition.containerDefinitions[0].logConfiguration'
+```
+
+## Tóm tắt
+
+Bạn đã thiết lập thành công hệ thống monitoring toàn diện:
+
+- ✅ **CloudWatch Logs:** Centralized logging với retention policies
+- ✅ **Custom Metrics:** Business và technical KPIs
+- ✅ **Dashboards:** Visual monitoring cho ECS và Network
+- ✅ **Alarms:** Proactive alerting cho critical issues
+- ✅ **Log Analysis:** Metric filters và Log Insights queries
+- ✅ **Performance Monitoring:** Automated health checks
+- ✅ **Load Testing:** Scripts để validate monitoring
+
+**Monitoring Coverage:**
+- **Infrastructure:** ECS, ALB, VPC
+- **Application:** Logs, errors, performance
+- **Network:** Traffic, connections, latency
+- **Security:** Failed requests, unusual patterns
+
+## Bước tiếp theo
+
+Monitoring đã hoàn tất! Cuối cùng chúng ta sẽ học cách [Cleanup Resources](../8-cleanup/) để tránh chi phí không cần thiết.
 
 ---
 
-**Monitoring Resources Created:**
-- Enhanced CloudWatch log groups with retention policies
-- ALB access logs to S3
-- Custom CloudWatch dashboard
-- 8+ CloudWatch alarms for proactive monitoring
-- SNS topic for alert notifications
-- VPC Flow Logs analysis queries
-- Cost monitoring alarms
+**💡 Monitoring Tip:** "You can't improve what you don't measure" - luôn monitor những metrics quan trọng nhất trước.
