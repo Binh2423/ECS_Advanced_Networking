@@ -1,3 +1,27 @@
-baseURL = 'https://example.org/'
+baseURL = 'http://localhost:1313'
 languageCode = 'en-us'
-title = 'My New Hugo Site'
+title = 'ECS Advanced Networking Workshop'
+theme = 'hugo-theme-learn'
+
+[outputs]
+home = [ "HTML", "RSS", "JSON"]
+
+[params]
+  themeVariant = "workshop"
+  editURL = ""
+  description = "Workshop thực hành ECS Advanced Networking"
+  author = "AWS Study Group Vietnam"
+  showVisitedLinks = true
+  disableBreadcrumb = false
+  disableNextPrev = false
+
+[Languages]
+[Languages.en]
+title = "ECS Advanced Networking Workshop"
+weight = 1
+languageName = "English"
+
+[Languages.vi]
+title = "Workshop ECS Advanced Networking"
+weight = 2
+languageName = "Tiếng Việt"

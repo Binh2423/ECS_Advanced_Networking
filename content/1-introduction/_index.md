@@ -52,32 +52,44 @@ ECS provides several networking modes and features that enable you to build soph
 
 ## Workshop Architecture
 
-In this workshop, we'll build a comprehensive ECS networking solution:
+In this workshop, we'll build the comprehensive ECS networking solution shown in the architecture diagram below:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Internet Gateway                      │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                 Application Load Balancer                   │
-│                    (Public Subnets)                        │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                    ECS Fargate Tasks                       │
-│                   (Private Subnets)                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Web App   │  │   API App   │  │  Database   │        │
-│  │   Service   │  │   Service   │  │   Service   │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘        │
-└─────────────────────────────────────────────────────────────┘
-                          │
-┌─────────────────────────┴───────────────────────────────────┐
-│                   Service Discovery                        │
-│                   (AWS Cloud Map)                          │
-└─────────────────────────────────────────────────────────────┘
-```
+![ECS Advanced Networking Architecture](/images/ecs-architecture.png)
+
+### Architecture Components
+
+The solution includes:
+
+1. **Multi-AZ VPC Design**
+   - Public subnets for load balancers and NAT gateways
+   - Private subnets for ECS tasks and internal services
+   - Internet Gateway for public internet access
+   - NAT Gateways for secure outbound connectivity
+
+2. **ECS Fargate Cluster**
+   - Serverless container platform
+   - Tasks deployed across multiple availability zones
+   - Automatic scaling and load distribution
+
+3. **Application Load Balancer**
+   - Layer 7 load balancing with advanced routing
+   - Health checks and target group management
+   - SSL/TLS termination capabilities
+
+4. **Service Discovery**
+   - AWS Cloud Map integration
+   - DNS-based service resolution
+   - Automatic service registration/deregistration
+
+5. **Security Implementation**
+   - Security groups for network-level access control
+   - VPC endpoints for private AWS service access
+   - Network segmentation best practices
+
+6. **Monitoring & Observability**
+   - CloudWatch integration for metrics and logs
+   - VPC Flow Logs for network traffic analysis
+   - Application and infrastructure monitoring
 
 ## Learning Objectives
 
@@ -130,7 +142,7 @@ This workshop is structured as a progressive learning experience:
 6. **Monitoring**: Set up observability
 7. **Cleanup**: Remove all resources
 
-Each section builds upon the previous one, creating a complete, production-ready ECS networking solution.
+Each section builds upon the previous one, creating a complete, production-ready ECS networking solution that matches the architecture diagram.
 
 > **Workshop Information**
 > - **Estimated Time**: 6 hours total

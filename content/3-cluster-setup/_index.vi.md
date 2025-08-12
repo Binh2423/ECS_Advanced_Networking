@@ -1,45 +1,45 @@
 ---
-title : "ECS Cluster & VPC Configuration"
+title : "Cấu hình ECS Cluster & VPC"
 date : "`r Sys.Date()`"
 weight : 3
 chapter : false
 pre : " <b> 3. </b> "
 ---
 
-# ECS Cluster & VPC Configuration
+# Cấu hình ECS Cluster & VPC
 
-In this section, we'll create the foundational networking infrastructure for our ECS advanced networking workshop. We'll build a custom VPC with proper subnet architecture and set up an ECS Fargate cluster.
+Trong phần này, chúng ta sẽ tạo networking infrastructure cơ bản cho workshop ECS advanced networking. Chúng ta sẽ xây dựng custom VPC với kiến trúc subnet phù hợp và thiết lập ECS Fargate cluster.
 
-## Architecture Overview
+## Tổng quan Kiến trúc
 
-We'll create the following infrastructure:
+Chúng ta sẽ tạo infrastructure sau:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Custom VPC (10.0.0.0/16)                 │
+│                    Custom VPC (10.0.0.0/16)                │
 │                                                             │
-│  ┌─────────────────────┐    ┌─────────────────────┐         │
-│  │   Public Subnet     │    │   Public Subnet     │         │
-│  │   10.0.1.0/24       │    │   10.0.2.0/24       │         │
-│  │   (AZ-1a)           │    │   (AZ-1b)           │         │
-│  └─────────────────────┘    └─────────────────────┘         │
+│  ┌─────────────────────┐    ┌─────────────────────┐        │
+│  │   Public Subnet     │    │   Public Subnet     │        │
+│  │   10.0.1.0/24       │    │   10.0.2.0/24       │        │
+│  │   (AZ-1a)           │    │   (AZ-1b)           │        │
+│  └─────────────────────┘    └─────────────────────┘        │
 │                                                             │
-│  ┌─────────────────────┐    ┌─────────────────────┐         │
-│  │   Private Subnet    │    │   Private Subnet    │         │
-│  │   10.0.3.0/24       │    │   10.0.4.0/24       │         │
-│  │   (AZ-1a)           │    │   (AZ-1b)           │         │
-│  └─────────────────────┘    └─────────────────────┘         │
+│  ┌─────────────────────┐    ┌─────────────────────┐        │
+│  │   Private Subnet    │    │   Private Subnet    │        │
+│  │   10.0.3.0/24       │    │   10.0.4.0/24       │        │
+│  │   (AZ-1a)           │    │   (AZ-1b)           │        │
+│  └─────────────────────┘    └─────────────────────┘        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Step 1: Create Custom VPC
+## Bước 1: Tạo Custom VPC
 
-### 1.1 Create VPC
-First, let's create our custom VPC:
+### 1.1 Tạo VPC
+Đầu tiên, hãy tạo custom VPC:
 
 ```bash
-# Create VPC
+# Tạo VPC
 VPC_ID=$(aws ec2 create-vpc \
     --cidr-block 10.0.0.0/16 \
     --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=ECS-Workshop-VPC}]' \
@@ -50,7 +50,7 @@ echo "VPC ID: $VPC_ID"
 ```
 
 ### 1.2 Enable DNS Support
-Enable DNS hostnames and resolution:
+Enable DNS hostnames và resolution:
 
 ```bash
 # Enable DNS hostnames
@@ -64,11 +64,11 @@ aws ec2 modify-vpc-attribute \
     --enable-dns-support
 ```
 
-## Step 2: Create Subnets
+## Bước 2: Tạo Subnets
 
-### 2.1 Get Availability Zones
+### 2.1 Lấy Availability Zones
 ```bash
-# Get available AZs
+# Lấy available AZs
 AZ1=$(aws ec2 describe-availability-zones \
     --query 'AvailabilityZones[0].ZoneName' \
     --output text)
@@ -80,9 +80,9 @@ echo "AZ1: $AZ1"
 echo "AZ2: $AZ2"
 ```
 
-### 2.2 Create Public Subnets
+### 2.2 Tạo Public Subnets
 ```bash
-# Create Public Subnet 1
+# Tạo Public Subnet 1
 PUBLIC_SUBNET_1=$(aws ec2 create-subnet \
     --vpc-id $VPC_ID \
     --cidr-block 10.0.1.0/24 \
@@ -91,7 +91,7 @@ PUBLIC_SUBNET_1=$(aws ec2 create-subnet \
     --query 'Subnet.SubnetId' \
     --output text)
 
-# Create Public Subnet 2
+# Tạo Public Subnet 2
 PUBLIC_SUBNET_2=$(aws ec2 create-subnet \
     --vpc-id $VPC_ID \
     --cidr-block 10.0.2.0/24 \
@@ -104,9 +104,9 @@ echo "Public Subnet 1: $PUBLIC_SUBNET_1"
 echo "Public Subnet 2: $PUBLIC_SUBNET_2"
 ```
 
-### 2.3 Create Private Subnets
+### 2.3 Tạo Private Subnets
 ```bash
-# Create Private Subnet 1
+# Tạo Private Subnet 1
 PRIVATE_SUBNET_1=$(aws ec2 create-subnet \
     --vpc-id $VPC_ID \
     --cidr-block 10.0.3.0/24 \
@@ -115,7 +115,7 @@ PRIVATE_SUBNET_1=$(aws ec2 create-subnet \
     --query 'Subnet.SubnetId' \
     --output text)
 
-# Create Private Subnet 2
+# Tạo Private Subnet 2
 PRIVATE_SUBNET_2=$(aws ec2 create-subnet \
     --vpc-id $VPC_ID \
     --cidr-block 10.0.4.0/24 \
@@ -128,17 +128,17 @@ echo "Private Subnet 1: $PRIVATE_SUBNET_1"
 echo "Private Subnet 2: $PRIVATE_SUBNET_2"
 ```
 
-## Step 3: Internet Gateway and NAT Gateways
+## Bước 3: Internet Gateway và NAT Gateways
 
-### 3.1 Create and Attach Internet Gateway
+### 3.1 Tạo và Attach Internet Gateway
 ```bash
-# Create Internet Gateway
+# Tạo Internet Gateway
 IGW_ID=$(aws ec2 create-internet-gateway \
     --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=ECS-Workshop-IGW}]' \
     --query 'InternetGateway.InternetGatewayId' \
     --output text)
 
-# Attach to VPC
+# Attach vào VPC
 aws ec2 attach-internet-gateway \
     --internet-gateway-id $IGW_ID \
     --vpc-id $VPC_ID
@@ -146,9 +146,9 @@ aws ec2 attach-internet-gateway \
 echo "Internet Gateway: $IGW_ID"
 ```
 
-### 3.2 Create NAT Gateways
+### 3.2 Tạo NAT Gateways
 ```bash
-# Allocate Elastic IPs for NAT Gateways
+# Allocate Elastic IPs cho NAT Gateways
 EIP_1=$(aws ec2 allocate-address \
     --domain vpc \
     --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=ECS-NAT-EIP-1}]' \
@@ -161,7 +161,7 @@ EIP_2=$(aws ec2 allocate-address \
     --query 'AllocationId' \
     --output text)
 
-# Create NAT Gateways
+# Tạo NAT Gateways
 NAT_GW_1=$(aws ec2 create-nat-gateway \
     --subnet-id $PUBLIC_SUBNET_1 \
     --allocation-id $EIP_1 \
@@ -179,23 +179,23 @@ NAT_GW_2=$(aws ec2 create-nat-gateway \
 echo "NAT Gateway 1: $NAT_GW_1"
 echo "NAT Gateway 2: $NAT_GW_2"
 
-# Wait for NAT Gateways to be available
-echo "Waiting for NAT Gateways to be available..."
+# Chờ NAT Gateways available
+echo "Đang chờ NAT Gateways available..."
 aws ec2 wait nat-gateway-available --nat-gateway-ids $NAT_GW_1 $NAT_GW_2
 ```
 
-## Step 4: Route Tables
+## Bước 4: Route Tables
 
-### 4.1 Create Route Tables
+### 4.1 Tạo Route Tables
 ```bash
-# Create Public Route Table
+# Tạo Public Route Table
 PUBLIC_RT=$(aws ec2 create-route-table \
     --vpc-id $VPC_ID \
     --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=ECS-Public-RT}]' \
     --query 'RouteTable.RouteTableId' \
     --output text)
 
-# Create Private Route Tables
+# Tạo Private Route Tables
 PRIVATE_RT_1=$(aws ec2 create-route-table \
     --vpc-id $VPC_ID \
     --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=ECS-Private-RT-1}]' \
@@ -213,15 +213,15 @@ echo "Private Route Table 1: $PRIVATE_RT_1"
 echo "Private Route Table 2: $PRIVATE_RT_2"
 ```
 
-### 4.2 Create Routes
+### 4.2 Tạo Routes
 ```bash
-# Add route to Internet Gateway for public subnets
+# Thêm route đến Internet Gateway cho public subnets
 aws ec2 create-route \
     --route-table-id $PUBLIC_RT \
     --destination-cidr-block 0.0.0.0/0 \
     --gateway-id $IGW_ID
 
-# Add routes to NAT Gateways for private subnets
+# Thêm routes đến NAT Gateways cho private subnets
 aws ec2 create-route \
     --route-table-id $PRIVATE_RT_1 \
     --destination-cidr-block 0.0.0.0/0 \
@@ -233,9 +233,9 @@ aws ec2 create-route \
     --nat-gateway-id $NAT_GW_2
 ```
 
-### 4.3 Associate Route Tables with Subnets
+### 4.3 Associate Route Tables với Subnets
 ```bash
-# Associate public subnets with public route table
+# Associate public subnets với public route table
 aws ec2 associate-route-table \
     --subnet-id $PUBLIC_SUBNET_1 \
     --route-table-id $PUBLIC_RT
@@ -244,7 +244,7 @@ aws ec2 associate-route-table \
     --subnet-id $PUBLIC_SUBNET_2 \
     --route-table-id $PUBLIC_RT
 
-# Associate private subnets with private route tables
+# Associate private subnets với private route tables
 aws ec2 associate-route-table \
     --subnet-id $PRIVATE_SUBNET_1 \
     --route-table-id $PRIVATE_RT_1
@@ -254,11 +254,11 @@ aws ec2 associate-route-table \
     --route-table-id $PRIVATE_RT_2
 ```
 
-## Step 5: Security Groups
+## Bước 5: Security Groups
 
-### 5.1 Create Security Groups
+### 5.1 Tạo Security Groups
 ```bash
-# Security Group for ALB
+# Security Group cho ALB
 ALB_SG=$(aws ec2 create-security-group \
     --group-name ECS-ALB-SG \
     --description "Security group for Application Load Balancer" \
@@ -267,7 +267,7 @@ ALB_SG=$(aws ec2 create-security-group \
     --query 'GroupId' \
     --output text)
 
-# Security Group for ECS Tasks
+# Security Group cho ECS Tasks
 ECS_SG=$(aws ec2 create-security-group \
     --group-name ECS-Tasks-SG \
     --description "Security group for ECS tasks" \
@@ -280,7 +280,7 @@ echo "ALB Security Group: $ALB_SG"
 echo "ECS Security Group: $ECS_SG"
 ```
 
-### 5.2 Configure Security Group Rules
+### 5.2 Cấu hình Security Group Rules
 ```bash
 # ALB Security Group Rules
 aws ec2 authorize-security-group-ingress \
@@ -308,14 +308,14 @@ aws ec2 authorize-security-group-ingress \
     --port 443 \
     --cidr 0.0.0.0/0
 
-# Allow all outbound traffic (default)
+# Cho phép all outbound traffic (default)
 ```
 
-## Step 6: Create ECS Cluster
+## Bước 6: Tạo ECS Cluster
 
-### 6.1 Create ECS Cluster
+### 6.1 Tạo ECS Cluster
 ```bash
-# Create ECS cluster
+# Tạo ECS cluster
 CLUSTER_NAME="ecs-workshop-cluster"
 aws ecs create-cluster \
     --cluster-name $CLUSTER_NAME \
@@ -323,22 +323,22 @@ aws ecs create-cluster \
     --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1 \
     --tags key=Name,value=ECS-Workshop-Cluster
 
-echo "ECS Cluster created: $CLUSTER_NAME"
+echo "ECS Cluster đã được tạo: $CLUSTER_NAME"
 ```
 
-### 6.2 Verify Cluster Creation
+### 6.2 Xác minh Cluster Creation
 ```bash
-# Verify cluster status
+# Xác minh cluster status
 aws ecs describe-clusters \
     --clusters $CLUSTER_NAME \
     --query 'clusters[0].{Name:clusterName,Status:status,ActiveServicesCount:activeServicesCount}'
 ```
 
-## Step 7: Create IAM Roles
+## Bước 7: Tạo IAM Roles
 
 ### 7.1 ECS Task Execution Role
 ```bash
-# Create trust policy for ECS tasks
+# Tạo trust policy cho ECS tasks
 cat > ecs-task-execution-trust-policy.json << EOF
 {
   "Version": "2012-10-17",
@@ -354,7 +354,7 @@ cat > ecs-task-execution-trust-policy.json << EOF
 }
 EOF
 
-# Create ECS task execution role
+# Tạo ECS task execution role
 aws iam create-role \
     --role-name ecsTaskExecutionRole \
     --assume-role-policy-document file://ecs-task-execution-trust-policy.json
@@ -365,14 +365,14 @@ aws iam attach-role-policy \
     --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
 ```
 
-### 7.2 ECS Task Role (for application permissions)
+### 7.2 ECS Task Role (cho application permissions)
 ```bash
-# Create ECS task role
+# Tạo ECS task role
 aws iam create-role \
     --role-name ecsTaskRole \
     --assume-role-policy-document file://ecs-task-execution-trust-policy.json
 
-# Create custom policy for task role
+# Tạo custom policy cho task role
 cat > ecs-task-policy.json << EOF
 {
     "Version": "2012-10-17",
@@ -390,7 +390,7 @@ cat > ecs-task-policy.json << EOF
 }
 EOF
 
-# Create and attach custom policy
+# Tạo và attach custom policy
 aws iam create-policy \
     --policy-name ECSTaskCustomPolicy \
     --policy-document file://ecs-task-policy.json
@@ -400,13 +400,13 @@ aws iam attach-role-policy \
     --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/ECSTaskCustomPolicy
 ```
 
-## Step 8: Verification
+## Bước 8: Verification
 
-### 8.1 Save Environment Variables
-Create a file to save all the resource IDs for later use:
+### 8.1 Lưu Environment Variables
+Tạo file để lưu tất cả resource IDs cho việc sử dụng sau:
 
 ```bash
-# Save all resource IDs
+# Lưu tất cả resource IDs
 cat > workshop-resources.env << EOF
 export VPC_ID=$VPC_ID
 export PUBLIC_SUBNET_1=$PUBLIC_SUBNET_1
@@ -419,70 +419,72 @@ export CLUSTER_NAME=$CLUSTER_NAME
 export IGW_ID=$IGW_ID
 export NAT_GW_1=$NAT_GW_1
 export NAT_GW_2=$NAT_GW_2
+export PRIVATE_RT_1=$PRIVATE_RT_1
+export PRIVATE_RT_2=$PRIVATE_RT_2
 EOF
 
-echo "Resource IDs saved to workshop-resources.env"
-echo "Source this file in future sessions: source workshop-resources.env"
+echo "Resource IDs đã được lưu vào workshop-resources.env"
+echo "Source file này trong future sessions: source workshop-resources.env"
 ```
 
-### 8.2 Verify Infrastructure
+### 8.2 Xác minh Infrastructure
 ```bash
-# Verify VPC
+# Xác minh VPC
 aws ec2 describe-vpcs --vpc-ids $VPC_ID --query 'Vpcs[0].{VpcId:VpcId,State:State,CidrBlock:CidrBlock}'
 
-# Verify subnets
+# Xác minh subnets
 aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[].{SubnetId:SubnetId,CidrBlock:CidrBlock,AvailabilityZone:AvailabilityZone}'
 
-# Verify ECS cluster
+# Xác minh ECS cluster
 aws ecs describe-clusters --clusters $CLUSTER_NAME --query 'clusters[0].{Name:clusterName,Status:status}'
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### Các vấn đề thường gặp
 
 1. **NAT Gateway Creation Timeout**
-   - NAT Gateways can take 5-10 minutes to become available
-   - Use `aws ec2 wait nat-gateway-available` command
+   - NAT Gateways có thể mất 5-10 phút để available
+   - Sử dụng `aws ec2 wait nat-gateway-available` command
 
 2. **Route Table Association Errors**
-   - Ensure subnets exist before associating route tables
-   - Check that route table belongs to the same VPC
+   - Đảm bảo subnets tồn tại trước khi associate route tables
+   - Kiểm tra route table thuộc cùng VPC
 
 3. **Security Group Rules**
-   - Verify source security group exists before referencing
-   - Check VPC ID matches for all security groups
+   - Xác minh source security group tồn tại trước khi reference
+   - Kiểm tra VPC ID matches cho tất cả security groups
 
 ### Verification Commands
 ```bash
-# Check VPC components
+# Kiểm tra VPC components
 aws ec2 describe-vpcs --vpc-ids $VPC_ID
 aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID"
 aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID"
 aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID"
 
-# Check ECS cluster
+# Kiểm tra ECS cluster
 aws ecs list-clusters
 aws ecs describe-clusters --clusters $CLUSTER_NAME
 ```
 
-## Next Steps
+## Bước tiếp theo
 
-Congratulations! You've successfully created the foundational networking infrastructure for the ECS workshop. Your environment now includes:
+Chúc mừng! Bạn đã tạo thành công networking infrastructure cơ bản cho ECS workshop. Môi trường của bạn bây giờ bao gồm:
 
-- ✅ Custom VPC with DNS support
-- ✅ Public and private subnets across two AZs
-- ✅ Internet Gateway and NAT Gateways
+- ✅ Custom VPC với DNS support
+- ✅ Public và private subnets trên hai AZs
+- ✅ Internet Gateway và NAT Gateways
 - ✅ Proper routing configuration
-- ✅ Security groups for ALB and ECS tasks
+- ✅ Security groups cho ALB và ECS tasks
 - ✅ ECS Fargate cluster
-- ✅ IAM roles for ECS tasks
+- ✅ IAM roles cho ECS tasks
 
-Next, we'll move on to [Service Discovery Implementation](../4-service-discovery/) where we'll set up AWS Cloud Map for service-to-service communication.
+Tiếp theo, chúng ta sẽ chuyển đến [Triển khai Service Discovery](../4-service-discovery/) nơi chúng ta sẽ thiết lập AWS Cloud Map cho service-to-service communication.
 
 ---
 
-**Resources Created:**
+**Resources đã tạo:**
 - 1 VPC
 - 4 Subnets (2 public, 2 private)
 - 1 Internet Gateway
@@ -492,4 +494,4 @@ Next, we'll move on to [Service Discovery Implementation](../4-service-discovery
 - 1 ECS Cluster
 - 2 IAM Roles
 
-**Estimated Cost So Far:** ~$3-5/hour for NAT Gateways
+**Ước tính Chi phí hiện tại:** ~$3-5/giờ cho NAT Gateways

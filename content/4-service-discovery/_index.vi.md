@@ -1,66 +1,66 @@
 ---
-title : "Service Discovery Implementation"
+title : "Triển khai Service Discovery"
 date : "`r Sys.Date()`"
 weight : 4
 chapter : false
 pre : " <b> 4. </b> "
 ---
 
-# Service Discovery Implementation
+# Triển khai Service Discovery
 
-In this section, we'll implement service discovery using AWS Cloud Map, enabling our ECS services to find and communicate with each other using DNS names instead of hard-coded IP addresses.
+Trong phần này, chúng ta sẽ triển khai service discovery sử dụng AWS Cloud Map, cho phép ECS services tìm và giao tiếp với nhau sử dụng DNS names thay vì hard-coded IP addresses.
 
-## What is Service Discovery?
+## Service Discovery là gì?
 
-Service discovery is a mechanism that allows services to find and communicate with each other without hard-coding network locations. In a dynamic container environment like ECS, services can be created, destroyed, and moved frequently, making service discovery essential for reliable communication.
+Service discovery là cơ chế cho phép services tìm và giao tiếp với nhau mà không cần hard-code network locations. Trong môi trường container động như ECS, services có thể được tạo, hủy và di chuyển thường xuyên, làm cho service discovery trở nên thiết yếu cho reliable communication.
 
-## AWS Cloud Map Overview
+## Tổng quan AWS Cloud Map
 
-AWS Cloud Map is a cloud resource discovery service that provides:
+AWS Cloud Map là cloud resource discovery service cung cấp:
 - **DNS-based service discovery**
 - **Health checking**
 - **Automatic registration/deregistration**
-- **Integration with ECS services**
+- **Integration với ECS services**
 
-## Architecture
+## Kiến trúc
 
-We'll create the following service discovery setup:
+Chúng ta sẽ tạo service discovery setup sau:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    AWS Cloud Map                            │
+│                    AWS Cloud Map                           │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │            Private DNS Namespace                        ││
 │  │              workshop.local                             ││
 │  │                                                         ││
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      ││
-│  │  │   web.      │  │   api.      │  │   db.       │      ││
-│  │  │ workshop.   │  │ workshop.   │  │ workshop.   │      ││
-│  │  │   local     │  │   local     │  │   local     │      ││
-│  │  └─────────────┘  └─────────────┘  └─────────────┘      ││
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    ││
+│  │  │   web.      │  │   api.      │  │   db.       │    ││
+│  │  │ workshop.   │  │ workshop.   │  │ workshop.   │    ││
+│  │  │   local     │  │   local     │  │   local     │    ││
+│  │  └─────────────┘  └─────────────┘  └─────────────┘    ││
 │  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Step 1: Load Environment Variables
+## Bước 1: Load Environment Variables
 
-First, load the environment variables from the previous section:
+Đầu tiên, load environment variables từ phần trước:
 
 ```bash
 # Load environment variables
 source workshop-resources.env
 
-# Verify variables are loaded
+# Xác minh variables được load
 echo "VPC ID: $VPC_ID"
 echo "Cluster Name: $CLUSTER_NAME"
 ```
 
-## Step 2: Create Cloud Map Namespace
+## Bước 2: Tạo Cloud Map Namespace
 
-### 2.1 Create Private DNS Namespace
+### 2.1 Tạo Private DNS Namespace
 ```bash
-# Create private DNS namespace
+# Tạo private DNS namespace
 NAMESPACE_ID=$(aws servicediscovery create-private-dns-namespace \
     --name workshop.local \
     --vpc $VPC_ID \
@@ -70,11 +70,11 @@ NAMESPACE_ID=$(aws servicediscovery create-private-dns-namespace \
 
 echo "Namespace creation operation ID: $NAMESPACE_ID"
 
-# Wait for namespace creation to complete
-echo "Waiting for namespace creation to complete..."
+# Chờ namespace creation hoàn thành
+echo "Đang chờ namespace creation hoàn thành..."
 aws servicediscovery get-operation --operation-id $NAMESPACE_ID
 
-# Get the namespace ID once created
+# Lấy namespace ID khi đã tạo
 NAMESPACE_ID=$(aws servicediscovery list-namespaces \
     --filters Name=TYPE,Values=DNS_PRIVATE \
     --query 'Namespaces[?Name==`workshop.local`].Id' \
@@ -83,17 +83,17 @@ NAMESPACE_ID=$(aws servicediscovery list-namespaces \
 echo "Namespace ID: $NAMESPACE_ID"
 ```
 
-### 2.2 Verify Namespace Creation
+### 2.2 Xác minh Namespace Creation
 ```bash
-# Describe the namespace
+# Describe namespace
 aws servicediscovery get-namespace --id $NAMESPACE_ID
 ```
 
-## Step 3: Create Service Registry Services
+## Bước 3: Tạo Service Registry Services
 
-### 3.1 Create Web Service Registry
+### 3.1 Tạo Web Service Registry
 ```bash
-# Create service registry for web service
+# Tạo service registry cho web service
 WEB_SERVICE_ID=$(aws servicediscovery create-service \
     --name web \
     --namespace-id $NAMESPACE_ID \
@@ -106,9 +106,9 @@ WEB_SERVICE_ID=$(aws servicediscovery create-service \
 echo "Web Service Registry ID: $WEB_SERVICE_ID"
 ```
 
-### 3.2 Create API Service Registry
+### 3.2 Tạo API Service Registry
 ```bash
-# Create service registry for API service
+# Tạo service registry cho API service
 API_SERVICE_ID=$(aws servicediscovery create-service \
     --name api \
     --namespace-id $NAMESPACE_ID \
@@ -121,9 +121,9 @@ API_SERVICE_ID=$(aws servicediscovery create-service \
 echo "API Service Registry ID: $API_SERVICE_ID"
 ```
 
-### 3.3 Create Database Service Registry
+### 3.3 Tạo Database Service Registry
 ```bash
-# Create service registry for database service
+# Tạo service registry cho database service
 DB_SERVICE_ID=$(aws servicediscovery create-service \
     --name db \
     --namespace-id $NAMESPACE_ID \
@@ -136,11 +136,11 @@ DB_SERVICE_ID=$(aws servicediscovery create-service \
 echo "Database Service Registry ID: $DB_SERVICE_ID"
 ```
 
-## Step 4: Create Sample Applications
+## Bước 4: Tạo Sample Applications
 
-### 4.1 Create Web Application Task Definition
+### 4.1 Tạo Web Application Task Definition
 ```bash
-# Create task definition for web application
+# Tạo task definition cho web application
 cat > web-task-definition.json << EOF
 {
     "family": "web-app",
@@ -180,16 +180,16 @@ cat > web-task-definition.json << EOF
 }
 EOF
 
-# Create CloudWatch log group
+# Tạo CloudWatch log group
 aws logs create-log-group --log-group-name /ecs/web-app
 
 # Register task definition
 aws ecs register-task-definition --cli-input-json file://web-task-definition.json
 ```
 
-### 4.2 Create API Application Task Definition
+### 4.2 Tạo API Application Task Definition
 ```bash
-# Create task definition for API application
+# Tạo task definition cho API application
 cat > api-task-definition.json << EOF
 {
     "family": "api-app",
@@ -229,16 +229,16 @@ cat > api-task-definition.json << EOF
 }
 EOF
 
-# Create CloudWatch log group
+# Tạo CloudWatch log group
 aws logs create-log-group --log-group-name /ecs/api-app
 
 # Register task definition
 aws ecs register-task-definition --cli-input-json file://api-task-definition.json
 ```
 
-### 4.3 Create Database Task Definition
+### 4.3 Tạo Database Task Definition
 ```bash
-# Create task definition for database
+# Tạo task definition cho database
 cat > db-task-definition.json << EOF
 {
     "family": "db-app",
@@ -272,18 +272,18 @@ cat > db-task-definition.json << EOF
 }
 EOF
 
-# Create CloudWatch log group
+# Tạo CloudWatch log group
 aws logs create-log-group --log-group-name /ecs/db-app
 
 # Register task definition
 aws ecs register-task-definition --cli-input-json file://db-task-definition.json
 ```
 
-## Step 5: Create ECS Services with Service Discovery
+## Bước 5: Tạo ECS Services với Service Discovery
 
-### 5.1 Create Web Service
+### 5.1 Tạo Web Service
 ```bash
-# Create web service with service discovery
+# Tạo web service với service discovery
 aws ecs create-service \
     --cluster $CLUSTER_NAME \
     --service-name web-service \
@@ -293,12 +293,12 @@ aws ecs create-service \
     --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
     --service-registries registryArn=arn:aws:servicediscovery:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):service/$WEB_SERVICE_ID
 
-echo "Web service created"
+echo "Web service đã được tạo"
 ```
 
-### 5.2 Create API Service
+### 5.2 Tạo API Service
 ```bash
-# Create API service with service discovery
+# Tạo API service với service discovery
 aws ecs create-service \
     --cluster $CLUSTER_NAME \
     --service-name api-service \
@@ -308,12 +308,12 @@ aws ecs create-service \
     --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
     --service-registries registryArn=arn:aws:servicediscovery:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):service/$API_SERVICE_ID
 
-echo "API service created"
+echo "API service đã được tạo"
 ```
 
-### 5.3 Create Database Service
+### 5.3 Tạo Database Service
 ```bash
-# Create database service with service discovery
+# Tạo database service với service discovery
 aws ecs create-service \
     --cluster $CLUSTER_NAME \
     --service-name db-service \
@@ -323,14 +323,14 @@ aws ecs create-service \
     --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
     --service-registries registryArn=arn:aws:servicediscovery:$(aws configure get region):$(aws sts get-caller-identity --query Account --output text):service/$DB_SERVICE_ID
 
-echo "Database service created"
+echo "Database service đã được tạo"
 ```
 
-## Step 6: Verify Service Discovery
+## Bước 6: Xác minh Service Discovery
 
-### 6.1 Check Service Status
+### 6.1 Kiểm tra Service Status
 ```bash
-# Check all services status
+# Kiểm tra tất cả services status
 aws ecs describe-services \
     --cluster $CLUSTER_NAME \
     --services web-service api-service db-service \
@@ -339,24 +339,24 @@ aws ecs describe-services \
 
 ### 6.2 List Service Discovery Instances
 ```bash
-# List instances for web service
+# List instances cho web service
 echo "Web service instances:"
 aws servicediscovery list-instances --service-id $WEB_SERVICE_ID
 
-# List instances for API service
+# List instances cho API service
 echo "API service instances:"
 aws servicediscovery list-instances --service-id $API_SERVICE_ID
 
-# List instances for database service
+# List instances cho database service
 echo "Database service instances:"
 aws servicediscovery list-instances --service-id $DB_SERVICE_ID
 ```
 
 ### 6.3 Test DNS Resolution
-To test DNS resolution, we'll create a temporary task that can perform DNS lookups:
+Để test DNS resolution, chúng ta sẽ tạo temporary task có thể thực hiện DNS lookups:
 
 ```bash
-# Create a test task definition
+# Tạo test task definition
 cat > test-task-definition.json << EOF
 {
     "family": "dns-test",
@@ -384,11 +384,11 @@ cat > test-task-definition.json << EOF
 }
 EOF
 
-# Create log group and register task definition
+# Tạo log group và register task definition
 aws logs create-log-group --log-group-name /ecs/dns-test
 aws ecs register-task-definition --cli-input-json file://test-task-definition.json
 
-# Run the test task
+# Chạy test task
 TEST_TASK_ARN=$(aws ecs run-task \
     --cluster $CLUSTER_NAME \
     --task-definition dns-test \
@@ -399,28 +399,28 @@ TEST_TASK_ARN=$(aws ecs run-task \
 
 echo "Test task ARN: $TEST_TASK_ARN"
 
-# Wait for task to be running
-echo "Waiting for test task to be running..."
+# Chờ task running
+echo "Đang chờ test task running..."
 aws ecs wait tasks-running --cluster $CLUSTER_NAME --tasks $TEST_TASK_ARN
 ```
 
-## Step 7: Advanced Service Discovery Features
+## Bước 7: Advanced Service Discovery Features
 
 ### 7.1 Health Checks
-Service discovery automatically performs health checks. You can view the health status:
+Service discovery tự động thực hiện health checks. Bạn có thể xem health status:
 
 ```bash
-# Get health status for all services
+# Lấy health status cho tất cả services
 aws servicediscovery get-instances-health-status --service-id $WEB_SERVICE_ID
 aws servicediscovery get-instances-health-status --service-id $API_SERVICE_ID
 aws servicediscovery get-instances-health-status --service-id $DB_SERVICE_ID
 ```
 
 ### 7.2 Custom Attributes
-You can add custom attributes to service instances:
+Bạn có thể thêm custom attributes vào service instances:
 
 ```bash
-# Example: Add custom attributes to a service
+# Ví dụ: Thêm custom attributes vào service
 aws servicediscovery register-instance \
     --service-id $WEB_SERVICE_ID \
     --instance-id custom-web-instance \
@@ -428,20 +428,20 @@ aws servicediscovery register-instance \
 ```
 
 ### 7.3 Service Discovery Metrics
-Enable CloudWatch metrics for service discovery:
+Enable CloudWatch metrics cho service discovery:
 
 ```bash
-# Service discovery automatically publishes metrics to CloudWatch
-# View available metrics
+# Service discovery tự động publish metrics vào CloudWatch
+# Xem available metrics
 aws cloudwatch list-metrics --namespace AWS/ServiceDiscovery
 ```
 
-## Step 8: Update Environment Variables
+## Bước 8: Cập nhật Environment Variables
 
-Save the new service discovery resources:
+Lưu service discovery resources mới:
 
 ```bash
-# Update environment variables file
+# Cập nhật environment variables file
 cat >> workshop-resources.env << EOF
 export NAMESPACE_ID=$NAMESPACE_ID
 export WEB_SERVICE_ID=$WEB_SERVICE_ID
@@ -449,22 +449,22 @@ export API_SERVICE_ID=$API_SERVICE_ID
 export DB_SERVICE_ID=$DB_SERVICE_ID
 EOF
 
-echo "Service discovery resources added to workshop-resources.env"
+echo "Service discovery resources đã được thêm vào workshop-resources.env"
 ```
 
 ## Testing Service Discovery
 
 ### DNS Resolution Test
-Once your test task is running, you can execute commands to test DNS resolution:
+Khi test task của bạn đang chạy, bạn có thể execute commands để test DNS resolution:
 
 ```bash
-# Get the task ID (short form)
+# Lấy task ID (short form)
 TASK_ID=$(echo $TEST_TASK_ARN | cut -d'/' -f3)
 
-# Test DNS resolution (this requires ECS Exec to be enabled)
-# For now, we'll check the CloudWatch logs to see if services are registered
+# Test DNS resolution (cần ECS Exec được enable)
+# Hiện tại, chúng ta sẽ kiểm tra CloudWatch logs để xem services có được registered không
 
-# Check service registration in CloudWatch logs
+# Kiểm tra service registration trong CloudWatch logs
 aws logs describe-log-streams --log-group-name /ecs/web-app
 aws logs describe-log-streams --log-group-name /ecs/api-app
 aws logs describe-log-streams --log-group-name /ecs/db-app
@@ -472,76 +472,76 @@ aws logs describe-log-streams --log-group-name /ecs/db-app
 
 ## Troubleshooting
 
-### Common Issues
+### Các vấn đề thường gặp
 
 1. **Service Registration Fails**
-   - Check that the service registry exists
-   - Verify ECS service has proper IAM permissions
-   - Ensure network configuration allows communication
+   - Kiểm tra service registry tồn tại
+   - Xác minh ECS service có proper IAM permissions
+   - Đảm bảo network configuration cho phép communication
 
-2. **DNS Resolution Not Working**
-   - Verify VPC has DNS resolution and DNS hostnames enabled
-   - Check that tasks are in the same VPC as the namespace
-   - Ensure security groups allow the required traffic
+2. **DNS Resolution không hoạt động**
+   - Xác minh VPC có DNS resolution và DNS hostnames enabled
+   - Kiểm tra tasks trong cùng VPC với namespace
+   - Đảm bảo security groups cho phép required traffic
 
 3. **Health Check Failures**
-   - Check container health and logs
-   - Verify port configurations match
+   - Kiểm tra container health và logs
+   - Xác minh port configurations match
    - Review security group rules
 
 ### Verification Commands
 ```bash
-# Check namespace status
+# Kiểm tra namespace status
 aws servicediscovery get-namespace --id $NAMESPACE_ID
 
-# List all services in namespace
+# List tất cả services trong namespace
 aws servicediscovery list-services --filters Name=NAMESPACE_ID,Values=$NAMESPACE_ID
 
-# Check service instances
+# Kiểm tra service instances
 aws servicediscovery list-instances --service-id $WEB_SERVICE_ID
 
-# Verify ECS services
+# Xác minh ECS services
 aws ecs describe-services --cluster $CLUSTER_NAME --services web-service api-service db-service
 ```
 
 ## Best Practices
 
 1. **Naming Conventions**
-   - Use consistent naming for services and namespaces
-   - Include environment and application identifiers
+   - Sử dụng consistent naming cho services và namespaces
+   - Bao gồm environment và application identifiers
 
 2. **TTL Configuration**
-   - Use appropriate TTL values (60 seconds is good for most cases)
-   - Lower TTL for frequently changing services
+   - Sử dụng appropriate TTL values (60 seconds tốt cho hầu hết cases)
+   - Lower TTL cho frequently changing services
 
 3. **Health Checks**
-   - Configure appropriate failure thresholds
+   - Cấu hình appropriate failure thresholds
    - Monitor health check metrics
 
 4. **Security**
-   - Use private namespaces for internal communication
-   - Implement proper security group rules
+   - Sử dụng private namespaces cho internal communication
+   - Triển khai proper security group rules
 
-## Next Steps
+## Bước tiếp theo
 
-Excellent! You've successfully implemented service discovery for your ECS services. Your services can now communicate with each other using DNS names like:
+Tuyệt vời! Bạn đã triển khai thành công service discovery cho ECS services. Services của bạn bây giờ có thể giao tiếp với nhau sử dụng DNS names như:
 
 - `web.workshop.local`
 - `api.workshop.local`
 - `db.workshop.local`
 
-Next, we'll move on to [Advanced Load Balancing](../5-load-balancing/) where we'll set up Application Load Balancers with advanced routing capabilities.
+Tiếp theo, chúng ta sẽ chuyển đến [Load Balancing nâng cao](../5-load-balancing/) nơi chúng ta sẽ thiết lập Application Load Balancers với advanced routing capabilities.
 
 ---
 
-**Resources Created:**
+**Resources đã tạo:**
 - 1 Private DNS Namespace
 - 3 Service Discovery Services
-- 3 ECS Services with Service Discovery
+- 3 ECS Services với Service Discovery
 - 3 Task Definitions
 - 3 CloudWatch Log Groups
 
-**Key Benefits Achieved:**
+**Key Benefits đã đạt được:**
 - ✅ DNS-based service discovery
 - ✅ Automatic service registration/deregistration
 - ✅ Health checking integration

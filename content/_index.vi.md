@@ -45,19 +45,30 @@ Trong workshop toàn diện này, bạn sẽ học các khái niệm và thực 
 
 ### Tổng quan kiến trúc
 
-Workshop này sẽ hướng dẫn bạn xây dựng kiến trúc ECS production-ready với:
+Workshop này sẽ hướng dẫn bạn xây dựng kiến trúc ECS production-ready như được minh họa ở trên, bao gồm:
 
-- **Custom VPC** với public và private subnets
-- **ECS Fargate** cluster với nhiều services
-- **Application Load Balancer** với advanced routing
-- **Service Discovery** sử dụng AWS Cloud Map
-- **Security Groups** và network ACLs
-- **CloudWatch** monitoring và logging
+- **Custom VPC** với public và private subnets trên nhiều AZ
+- **ECS Fargate** cluster với các ứng dụng container
+- **Application Load Balancer** với khả năng routing nâng cao
+- **Service Discovery** sử dụng AWS Cloud Map cho giao tiếp service liền mạch
+- **Security Groups** và network ACLs cho network segmentation phù hợp
+- **CloudWatch** monitoring và logging cho observability
+- **NAT Gateways** cho truy cập internet an toàn từ private subnets
+
+### Các thành phần chính
+
+Kiến trúc này thể hiện:
+
+- **Multi-AZ deployment** cho high availability
+- **Private subnet placement** cho ECS tasks để tăng cường bảo mật
+- **Load balancer integration** cho phân phối traffic
+- **Service mesh capabilities** thông qua service discovery
+- **Monitoring và logging** tích hợp với CloudWatch
 
 ### Ước tính chi phí
 
 - **Thời gian workshop**: ~$15-25 phí AWS
-- **Resources**: ECS Fargate, ALB, VPC endpoints, CloudWatch
+- **Resources**: ECS Fargate, ALB, VPC endpoints, CloudWatch, NAT Gateways
 - **Cleanup**: Tất cả resources sẽ được xóa ở cuối
 
 > **Lưu ý**: Hãy chắc chắn làm theo hướng dẫn cleanup ở cuối để tránh phí phát sinh!
@@ -68,4 +79,4 @@ Workshop này sẽ hướng dẫn bạn xây dựng kiến trúc ECS production-
 - **AWS Study Group**: Tham gia cộng đồng Facebook của chúng tôi
 - **Documentation**: Tài liệu chính thức AWS ECS
 
-Hãy bắt đầu xây dựng các giải pháp ECS networking nâng cao! 🚀
+Hãy bắt đầu xây dựng giải pháp ECS networking nâng cao này! 🚀

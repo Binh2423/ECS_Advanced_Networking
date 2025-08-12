@@ -45,19 +45,30 @@ In this comprehensive workshop, you'll learn advanced networking concepts and pr
 
 ### Architecture Overview
 
-This workshop will guide you through building a production-ready ECS architecture with:
+This workshop will guide you through building the production-ready ECS architecture shown above, featuring:
 
-- **Custom VPC** with public and private subnets
-- **ECS Fargate** cluster with multiple services
-- **Application Load Balancer** with advanced routing
-- **Service Discovery** using AWS Cloud Map
-- **Security Groups** and network ACLs
-- **CloudWatch** monitoring and logging
+- **Custom VPC** with public and private subnets across multiple AZs
+- **ECS Fargate** cluster with containerized applications
+- **Application Load Balancer** with advanced routing capabilities
+- **Service Discovery** using AWS Cloud Map for seamless service communication
+- **Security Groups** and network ACLs for proper network segmentation
+- **CloudWatch** monitoring and logging for observability
+- **NAT Gateways** for secure outbound internet access from private subnets
+
+### Key Components
+
+The architecture demonstrates:
+
+- **Multi-AZ deployment** for high availability
+- **Private subnet placement** for ECS tasks to enhance security
+- **Load balancer integration** for traffic distribution
+- **Service mesh capabilities** through service discovery
+- **Monitoring and logging** integration with CloudWatch
 
 ### Cost Estimation
 
 - **Workshop Duration**: ~$15-25 in AWS charges
-- **Resources**: ECS Fargate, ALB, VPC endpoints, CloudWatch
+- **Resources**: ECS Fargate, ALB, VPC endpoints, CloudWatch, NAT Gateways
 - **Cleanup**: All resources will be deleted at the end
 
 > **Important**: Make sure to follow the cleanup instructions at the end to avoid ongoing charges!
@@ -68,4 +79,4 @@ This workshop will guide you through building a production-ready ECS architectur
 - **AWS Study Group**: Join our Facebook community
 - **Documentation**: AWS ECS official documentation
 
-Let's get started with building advanced ECS networking solutions! 🚀
+Let's get started with building this advanced ECS networking solution! 🚀
