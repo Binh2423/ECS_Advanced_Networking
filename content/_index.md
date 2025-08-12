@@ -5,19 +5,13 @@ weight: 1
 chapter: false
 ---
 
-# Workshop ECS Advanced Networking
-
 Chào mừng bạn đến với **Workshop ECS Advanced Networking**! 🚀
 
 {{< alert type="aws" title="Về Workshop" >}}
 Workshop này sẽ hướng dẫn bạn triển khai một hệ thống container hoàn chỉnh trên AWS ECS với các tính năng networking nâng cao.
 {{< /alert >}}
 
-## Tổng quan Workshop
-
-Workshop này sẽ hướng dẫn bạn triển khai một hệ thống container hoàn chỉnh trên AWS ECS với các tính năng networking nâng cao.
-
-### Bạn sẽ học được gì?
+## Bạn sẽ học được gì?
 
 - **🌐 VPC Networking:** Thiết kế và triển khai VPC với public/private subnets
 - **🐳 ECS Container Orchestration:** Quản lý containers với ECS Fargate
@@ -27,7 +21,7 @@ Workshop này sẽ hướng dẫn bạn triển khai một hệ thống containe
 - **📊 Monitoring:** Theo dõi hệ thống với CloudWatch
 - **🧹 Resource Management:** Cleanup và cost optimization
 
-### Architecture Overview
+## Architecture Overview
 
 {{< workshop-image src="images/ecs-architecture.png" alt="ECS Advanced Networking Architecture" caption="Kiến trúc tổng quan của workshop - từ Internet đến ECS Services qua Load Balancer và Service Discovery" >}}
 

@@ -6,8 +6,6 @@ chapter : false
 pre : " <b> 1. </b> "
 ---
 
-# Thiết lập VPC và Networking
-
 ## VPC là gì?
 
 VPC (Virtual Private Cloud) giống như xây một khu nhà riêng trong thành phố AWS. Bạn có thể kiểm soát ai vào, ai ra, và các phòng nào kết nối với nhau.
@@ -29,7 +27,7 @@ VPC (10.0.0.0/16)
 ├── Public Subnets (Internet access)
 │   ├── Public Subnet 1 (10.0.1.0/24) - AZ-a
 │   └── Public Subnet 2 (10.0.2.0/24) - AZ-b
-└── Private Subnets (No direct internet)
+���── Private Subnets (No direct internet)
     ├── Private Subnet 1 (10.0.3.0/24) - AZ-a
     └── Private Subnet 2 (10.0.4.0/24) - AZ-b
 ```

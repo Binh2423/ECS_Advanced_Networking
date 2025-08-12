@@ -2,7 +2,7 @@
 
 🚀 **Workshop thực hành về ECS Advanced Networking trên AWS**
 
-[![Deploy Hugo site to Pages](https://github.com/Binh2423/ECS_Advanced_Networking.github.io/actions/workflows/hugo.yml/badge.svg)](https://github.com/Binh2423/ECS_Advanced_Networking.github.io/actions/workflows/hugo.yml)
+[![Deploy Hugo site to Pages](https://github.com/aurora/ECS_Advanced_Networking_Workshop/actions/workflows/hugo.yml/badge.svg)](https://github.com/aurora/ECS_Advanced_Networking_Workshop/actions/workflows/hugo.yml)
 
 ## 📖 Về Workshop
 
@@ -10,7 +10,7 @@ Workshop này hướng dẫn bạn triển khai một hệ thống container ho�
 
 ## 🌐 Truy cập Workshop
 
-**Website:** [https://binh2423.github.io/ECS_Advanced_Networking.github.io/](https://binh2423.github.io/ECS_Advanced_Networking.github.io/)
+**Website:** [https://aurora.github.io/ECS_Advanced_Networking_Workshop/](https://aurora.github.io/ECS_Advanced_Networking_Workshop/)
 
 ## 📚 Nội dung Workshop
 
@@ -19,12 +19,12 @@ Workshop này hướng dẫn bạn triển khai một hệ thống container ho�
 - Cấu hình Internet Gateway và NAT Gateway
 - Thiết lập Route Tables và Security Groups
 
-### 🐳 [2. Chuẩn bị môi trường](content/2-prerequisites/)
+### 🛠️ [2. Chuẩn bị môi trường](content/2-prerequisites/)
 - Kiểm tra prerequisites và tools
 - Cấu hình AWS CLI và permissions
 - Setup working environment
 
-### 🎯 [3. Tạo ECS Cluster và Services](content/3-cluster-setup/)
+### 🐳 [3. Tạo ECS Cluster và Services](content/3-cluster-setup/)
 - Khởi tạo ECS Cluster với Fargate
 - Deploy containerized applications
 - Cấu hình service scaling và health checks
@@ -93,7 +93,7 @@ Sau khi hoàn thành workshop, bạn sẽ có thể:
 
 ## 🚀 Bắt đầu
 
-1. **Truy cập workshop:** [https://binh2423.github.io/ECS_Advanced_Networking.github.io/](https://binh2423.github.io/ECS_Advanced_Networking.github.io/)
+1. **Truy cập workshop:** [https://aurora.github.io/ECS_Advanced_Networking_Workshop/](https://aurora.github.io/ECS_Advanced_Networking_Workshop/)
 
 2. **Kiểm tra prerequisites:**
    ```bash
@@ -107,7 +107,7 @@ Sau khi hoàn thành workshop, bạn sẽ có thể:
    cd ~/ecs-workshop
    ```
 
-4. **Bắt đầu với phần đầu tiên:** [Thiết lập VPC và Networking](https://binh2423.github.io/ECS_Advanced_Networking.github.io/1-introduction/)
+4. **Bắt đầu với phần đầu tiên:** [Thiết lập VPC và Networking](https://aurora.github.io/ECS_Advanced_Networking_Workshop/1-introduction/)
 
 ## 🏗️ Architecture Overview
 
@@ -153,7 +153,7 @@ Workshop này được phân phối dưới MIT License. Xem `LICENSE` file đ�
 
 ## 📞 Hỗ trợ
 
-- 🐛 **Issues:** [GitHub Issues](https://github.com/Binh2423/ECS_Advanced_Networking.github.io/issues)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/aurora/ECS_Advanced_Networking_Workshop/issues)
 - 📧 **Email:** Liên hệ qua GitHub
 - 📖 **Documentation:** [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/)
 
