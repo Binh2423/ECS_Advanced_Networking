@@ -1,4 +1,4 @@
-# Workshop ECS Advanced Networking
+# ECS_Advanced_Networking_Workshop
 
 🚀 **Workshop thực hành về ECS Advanced Networking trên AWS**
 

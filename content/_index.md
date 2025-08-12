@@ -1,11 +1,11 @@
 ---
-title: "Workshop ECS Advanced Networking"
+title: "ECS_Advanced_Networking_Workshop"
 date: "`r Sys.Date()`"
 weight: 1
 chapter: false
 ---
 
-Chào mừng bạn đến với **Workshop ECS Advanced Networking**! 🚀
+Chào mừng bạn đến với **ECS Advanced Networking Workshop**! 🚀
 
 {{< alert type="aws" title="Về Workshop" >}}
 Workshop này sẽ hướng dẫn bạn triển khai một hệ thống container hoàn chỉnh trên AWS ECS với các tính năng networking nâng cao.

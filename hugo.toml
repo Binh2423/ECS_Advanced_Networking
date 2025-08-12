@@ -1,6 +1,6 @@
 baseURL = 'https://binh2423.github.io/ECS_Advanced_Networking/'
 languageCode = 'vi-vn'
-title = 'Workshop ECS Advanced Networking'
+title = 'ECS_Advanced_Networking_Workshop'
 theme = 'hugo-theme-learn'
 defaultContentLanguage = 'vi'
 
@@ -11,7 +11,7 @@ home = [ "HTML", "RSS", "JSON"]
   themeVariant = "workshop"
   editURL = "https://github.com/Binh2423/ECS_Advanced_Networking/edit/main/content"
   description = "Workshop thực hành ECS Advanced Networking - Service Discovery, Load Balancing và Security trên AWS"
-  author = "AWS Workshop Team"
+  author = "ECS_Advanced_Networking_Workshop"
   showVisitedLinks = true
   disableBreadcrumb = false
   disableNextPrev = false
