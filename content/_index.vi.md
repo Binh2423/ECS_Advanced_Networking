@@ -9,16 +9,16 @@ chapter : false
 
 ### Tổng quan
 
-Trong workshop toàn diện này, bạn sẽ học các khái niệm và thực hành networking nâng cao cho Amazon Elastic Container Service (ECS). Bạn sẽ khám phá service discovery, các chiến lược load balancing, triển khai bảo mật, và kỹ thuật monitoring cho các ứng dụng container.
+Trong workshop toàn diện này, bạn sẽ học các khái niệm và thực hành networking nâng cao cho Amazon Elastic Container Service (ECS). Bạn sẽ khám phá service discovery, các chiến lược load balancing, triển khai bảo mật và kỹ thuật monitoring cho các ứng dụng container.
 
 ![ECS Architecture](/images/ecs-architecture.png) 
 
-### Bạn sẽ học được gì
+### Những gì bạn sẽ học được
 
-- **ECS Network Modes**: Hiểu về awsvpc, bridge, và host networking modes
+- **ECS Network Modes**: Hiểu về awsvpc, bridge và host networking modes
 - **Service Discovery**: Triển khai AWS Cloud Map và service mesh patterns
 - **Load Balancing**: Cấu hình ALB/NLB nâng cao và traffic routing
-- **Security**: Network segmentation, VPC endpoints, và encryption
+- **Security**: Network segmentation, VPC endpoints và encryption
 - **Monitoring**: Tích hợp CloudWatch và kỹ thuật troubleshooting
 
 ### Yêu cầu trước khi tham gia
@@ -32,7 +32,7 @@ Trong workshop toàn diện này, bạn sẽ học các khái niệm và thực 
 
 **6 giờ** - Workshop thực hành với môi trường AWS thật
 
-### Nội dung
+### Nội dung workshop
 
 1. [Giới thiệu](1-introduction/)
 2. [Yêu cầu & Thiết lập](2-prerequisites/)
@@ -71,12 +71,21 @@ Kiến trúc này thể hiện:
 - **Resources**: ECS Fargate, ALB, VPC endpoints, CloudWatch, NAT Gateways
 - **Cleanup**: Tất cả resources sẽ được xóa ở cuối
 
-> **Lưu ý**: Hãy chắc chắn làm theo hướng dẫn cleanup ở cuối để tránh phí phát sinh!
+> **Lưu ý quan trọng**: Hãy chắc chắn làm theo hướng dẫn cleanup ở cuối để tránh phí phát sinh!
 
 ### Hỗ trợ
 
 - **GitHub Issues**: Báo cáo vấn đề hoặc đặt câu hỏi
 - **AWS Study Group**: Tham gia cộng đồng Facebook của chúng tôi
 - **Documentation**: Tài liệu chính thức AWS ECS
+
+### Chuẩn bị bắt đầu
+
+Trước khi bắt đầu workshop, hãy đảm bảo bạn có:
+
+1. **AWS Account** với quyền administrator
+2. **AWS CLI v2** đã cài đặt và cấu hình
+3. **Docker** để test local
+4. **Kiến thức cơ bản** về networking và containers
 
 Hãy bắt đầu xây dựng giải pháp ECS networking nâng cao này! 🚀
