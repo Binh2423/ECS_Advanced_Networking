@@ -6,57 +6,46 @@ chapter : false
 pre : " <b> 5. </b> "
 ---
 
-# Cấu hình Load Balancing
+## Tổng quan Load Balancing
 
-## Load Balancer là gì?
+Application Load Balancer (ALB) sẽ distribute traffic từ internet đến các ECS services. ALB hoạt động ở Layer 7 và hỗ trợ path-based routing, health checks, và SSL termination.
 
-Load Balancer giống như nhân viên tiếp tân tại khách sạn - phân phối khách hàng đến các phòng trống, đảm bảo không có phòng nào quá tải.
+{{< alert type="info" title="Lợi ích của ALB" >}}
+- **Layer 7 Load Balancing:** HTTP/HTTPS traffic distribution
+- **Path-based Routing:** Route traffic dựa trên URL paths
+- **Health Checks:** Automatic health monitoring
+- **SSL Termination:** Handle SSL certificates
+- **Integration:** Native integration với ECS services
+{{< /alert >}}
 
-**Lợi ích:**
-- **High Availability:** Nếu 1 server down, traffic chuyển sang server khác
-- **Scalability:** Tự động phân phối load khi có nhiều instances
-- **Health Checking:** Chỉ gửi traffic đến healthy instances
-
-## Tổng quan Architecture
-
-```
-Internet → ALB → Target Groups → ECS Services
-    ↓         ↓         ↓           ↓
-  Users   Load      Frontend    Container
-         Balancer   API Tasks    Instances
-```
-
-## Bước 1: Chuẩn bị
-
-### 1.1 Load environment
+## Bước 1: Load Environment
 
 ```bash
+# Load workshop environment
 cd ~/ecs-workshop
 source workshop-env.sh
 
-# Kiểm tra variables cần thiết
-echo "VPC ID: $VPC_ID"
-echo "Public Subnets: $PUBLIC_SUBNET_1, $PUBLIC_SUBNET_2"
-echo "ALB Security Group: $ALB_SG"
-```
+# Verify required variables
+for var in VPC_ID ALB_SG PUBLIC_SUBNET_1 PUBLIC_SUBNET_2 ECS_SG; do
+    if [ -z "${!var}" ]; then
+        echo "❌ $var not found. Please complete previous steps."
+        exit 1
+    fi
+done
 
-### 1.2 Kiểm tra services đang chạy
-
-```bash
-aws ecs describe-services \
-    --cluster $CLUSTER_NAME \
-    --services frontend-service api-service \
-    --query 'services[].{Name:serviceName,Status:status,Running:runningCount}' \
-    --output table
+echo "✅ Environment loaded successfully"
 ```
 
 ## Bước 2: Tạo Application Load Balancer
 
-### 2.1 Tạo ALB
+### 2.1 Create ALB
+
+{{< console-screenshot src="images/alb-console-overview.png" alt="ALB Console Overview" caption="Application Load Balancer console hiển thị load balancers và configuration details" service="EC2 Console" >}}
 
 ```bash
-echo "🚀 Tạo Application Load Balancer..."
+echo "⚖️ Creating Application Load Balancer..."
 
+# Create ALB
 ALB_ARN=$(aws elbv2 create-load-balancer \
     --name ecs-workshop-alb \
     --subnets $PUBLIC_SUBNET_1 $PUBLIC_SUBNET_2 \
@@ -64,432 +53,519 @@ ALB_ARN=$(aws elbv2 create-load-balancer \
     --scheme internet-facing \
     --type application \
     --ip-address-type ipv4 \
-    --tags Key=Name,Value="ECS Workshop ALB" Key=Environment,Value=Workshop \
+    --tags Key=Environment,Value=workshop Key=Project,Value=ecs-networking \
     --query 'LoadBalancers[0].LoadBalancerArn' \
     --output text)
 
-echo "✅ ALB ARN: $ALB_ARN"
+echo "✅ ALB created: $ALB_ARN"
 echo "export ALB_ARN=$ALB_ARN" >> workshop-env.sh
-```
 
-### 2.2 Lấy ALB DNS Name
-
-```bash
+# Get ALB DNS name
 ALB_DNS=$(aws elbv2 describe-load-balancers \
     --load-balancer-arns $ALB_ARN \
     --query 'LoadBalancers[0].DNSName' \
     --output text)
 
-echo "🌐 ALB DNS Name: $ALB_DNS"
+echo "✅ ALB DNS Name: $ALB_DNS"
 echo "export ALB_DNS=$ALB_DNS" >> workshop-env.sh
 ```
 
-### 2.3 Xem trong Console
+### 2.2 Wait for ALB to be Active
 
-1. Mở [EC2 Console](https://console.aws.amazon.com/ec2/)
-2. Chọn "Load Balancers" ở sidebar trái
-3. Tìm "ecs-workshop-alb"
-4. Kiểm tra State = "active"
+```bash
+echo "⏳ Waiting for ALB to be active..."
 
-![ALB Overview](/images/alb-overview.png)
+# Wait for ALB to be active
+aws elbv2 wait load-balancer-available --load-balancer-arns $ALB_ARN
+
+echo "✅ ALB is now active"
+```
 
 ## Bước 3: Tạo Target Groups
 
 ### 3.1 Frontend Target Group
 
-```bash
-echo "🎯 Tạo Frontend Target Group..."
+{{< console-screenshot src="images/alb-target-groups.png" alt="ALB Target Groups" caption="Target Groups console hiển thị health check status và registered targets" service="EC2 Console" >}}
 
+```bash
+echo "🎯 Creating Target Groups..."
+
+# Create target group cho frontend
 FRONTEND_TG_ARN=$(aws elbv2 create-target-group \
-    --name frontend-tg \
+    --name ecs-workshop-frontend-tg \
     --protocol HTTP \
     --port 80 \
     --vpc-id $VPC_ID \
     --target-type ip \
-    --health-check-enabled \
-    --health-check-path / \
     --health-check-protocol HTTP \
+    --health-check-path / \
     --health-check-interval-seconds 30 \
     --health-check-timeout-seconds 5 \
     --healthy-threshold-count 2 \
     --unhealthy-threshold-count 3 \
-    --matcher HttpCode=200 \
-    --tags Key=Name,Value="Frontend Target Group" \
+    --tags Key=Environment,Value=workshop Key=Service,Value=frontend \
     --query 'TargetGroups[0].TargetGroupArn' \
     --output text)
 
-echo "✅ Frontend TG ARN: $FRONTEND_TG_ARN"
+echo "✅ Frontend Target Group: $FRONTEND_TG_ARN"
 echo "export FRONTEND_TG_ARN=$FRONTEND_TG_ARN" >> workshop-env.sh
 ```
 
 ### 3.2 API Target Group
 
 ```bash
-echo "🎯 Tạo API Target Group..."
-
+# Create target group cho API
 API_TG_ARN=$(aws elbv2 create-target-group \
-    --name api-tg \
+    --name ecs-workshop-api-tg \
     --protocol HTTP \
     --port 80 \
     --vpc-id $VPC_ID \
     --target-type ip \
-    --health-check-enabled \
-    --health-check-path / \
     --health-check-protocol HTTP \
+    --health-check-path / \
     --health-check-interval-seconds 30 \
     --health-check-timeout-seconds 5 \
     --healthy-threshold-count 2 \
     --unhealthy-threshold-count 3 \
-    --matcher HttpCode=200,403 \
-    --tags Key=Name,Value="API Target Group" \
+    --tags Key=Environment,Value=workshop Key=Service,Value=api \
     --query 'TargetGroups[0].TargetGroupArn' \
     --output text)
 
-echo "✅ API TG ARN: $API_TG_ARN"
+echo "✅ API Target Group: $API_TG_ARN"
 echo "export API_TG_ARN=$API_TG_ARN" >> workshop-env.sh
 ```
 
-### 3.3 Xem Target Groups
+### 3.3 Default Target Group
 
 ```bash
-echo "📊 Target Groups đã tạo:"
-aws elbv2 describe-target-groups \
-    --target-group-arns $FRONTEND_TG_ARN $API_TG_ARN \
-    --query 'TargetGroups[].{Name:TargetGroupName,Port:Port,Protocol:Protocol,HealthCheck:HealthCheckPath}' \
-    --output table
+# Create default target group (for unmatched requests)
+DEFAULT_TG_ARN=$(aws elbv2 create-target-group \
+    --name ecs-workshop-default-tg \
+    --protocol HTTP \
+    --port 80 \
+    --vpc-id $VPC_ID \
+    --target-type ip \
+    --health-check-protocol HTTP \
+    --health-check-path / \
+    --health-check-interval-seconds 30 \
+    --health-check-timeout-seconds 5 \
+    --healthy-threshold-count 2 \
+    --unhealthy-threshold-count 3 \
+    --tags Key=Environment,Value=workshop Key=Service,Value=default \
+    --query 'TargetGroups[0].TargetGroupArn' \
+    --output text)
+
+echo "✅ Default Target Group: $DEFAULT_TG_ARN"
+echo "export DEFAULT_TG_ARN=$DEFAULT_TG_ARN" >> workshop-env.sh
 ```
 
-## Bước 4: Tạo Listeners và Routing Rules
+## Bước 4: Tạo ALB Listeners và Rules
 
-### 4.1 Tạo Default Listener (Frontend)
+### 4.1 Create HTTP Listener
 
 ```bash
-echo "👂 Tạo ALB Listener..."
+echo "👂 Creating ALB Listener..."
 
+# Create HTTP listener với default action
 LISTENER_ARN=$(aws elbv2 create-listener \
     --load-balancer-arn $ALB_ARN \
     --protocol HTTP \
     --port 80 \
     --default-actions Type=forward,TargetGroupArn=$FRONTEND_TG_ARN \
-    --tags Key=Name,Value="HTTP Listener" \
+    --tags Key=Environment,Value=workshop \
     --query 'Listeners[0].ListenerArn' \
     --output text)
 
-echo "✅ Listener ARN: $LISTENER_ARN"
+echo "✅ HTTP Listener created: $LISTENER_ARN"
 echo "export LISTENER_ARN=$LISTENER_ARN" >> workshop-env.sh
 ```
 
-### 4.2 Tạo API Path Rule
+### 4.2 Create Listener Rules
 
 ```bash
-echo "🛣️ Tạo API routing rule..."
+echo "📋 Creating Listener Rules..."
 
-aws elbv2 create-rule \
+# Rule cho API path
+API_RULE_ARN=$(aws elbv2 create-rule \
     --listener-arn $LISTENER_ARN \
     --priority 100 \
     --conditions Field=path-pattern,Values="/api/*" \
     --actions Type=forward,TargetGroupArn=$API_TG_ARN \
-    --tags Key=Name,Value="API Path Rule"
+    --tags Key=Environment,Value=workshop Key=Service,Value=api \
+    --query 'Rules[0].RuleArn' \
+    --output text)
 
-echo "✅ API routing rule đã tạo"
-```
+echo "✅ API Rule created: $API_RULE_ARN"
 
-### 4.3 Tạo Health Check Rule
-
-```bash
-echo "🏥 Tạo health check rule..."
-
-aws elbv2 create-rule \
+# Rule cho health check
+HEALTH_RULE_ARN=$(aws elbv2 create-rule \
     --listener-arn $LISTENER_ARN \
     --priority 200 \
     --conditions Field=path-pattern,Values="/health" \
     --actions Type=fixed-response,FixedResponseConfig='{StatusCode=200,ContentType=text/plain,MessageBody=OK}' \
-    --tags Key=Name,Value="Health Check Rule"
+    --tags Key=Environment,Value=workshop Key=Service,Value=health \
+    --query 'Rules[0].RuleArn' \
+    --output text)
 
-echo "✅ Health check rule đã tạo"
+echo "✅ Health Rule created: $HEALTH_RULE_ARN"
 ```
 
-### 4.4 Xem Routing Rules
+## Bước 5: Update ECS Services với Load Balancer
+
+### 5.1 Update Frontend Service
 
 ```bash
-echo "📋 Routing Rules:"
-aws elbv2 describe-rules --listener-arn $LISTENER_ARN \
-    --query 'Rules[].{Priority:Priority,Conditions:Conditions[0].Values,Actions:Actions[0].Type}' \
-    --output table
-```
+echo "🔄 Updating ECS Services với Load Balancer..."
 
-## Bước 5: Cập nhật ECS Services với Load Balancer
-
-### 5.1 Cập nhật Frontend Service
-
-```bash
-echo "🔄 Cập nhật Frontend Service với ALB..."
-
+# Update frontend service với target group
 aws ecs update-service \
     --cluster $CLUSTER_NAME \
-    --service frontend-service \
-    --load-balancers targetGroupArn=$FRONTEND_TG_ARN,containerName=frontend,containerPort=80 \
-    --health-check-grace-period-seconds 60
+    --service workshop-frontend \
+    --load-balancers targetGroupArn=$FRONTEND_TG_ARN,containerName=frontend,containerPort=80
 
-echo "✅ Frontend service đã được cập nhật"
+echo "✅ Frontend service updated với ALB"
 ```
 
-### 5.2 Cập nhật API Service
+### 5.2 Update API Service
 
 ```bash
-echo "🔄 Cập nhật API Service với ALB..."
-
+# Update API service với target group
 aws ecs update-service \
     --cluster $CLUSTER_NAME \
-    --service api-service \
-    --load-balancers targetGroupArn=$API_TG_ARN,containerName=api,containerPort=80 \
-    --health-check-grace-period-seconds 60
+    --service workshop-api \
+    --load-balancers targetGroupArn=$API_TG_ARN,containerName=api,containerPort=80
 
-echo "✅ API service đã được cập nhật"
+echo "✅ API service updated với ALB"
 ```
 
-### 5.3 Chờ services ổn định
+### 5.3 Wait for Service Updates
 
 ```bash
-echo "⏳ Chờ services cập nhật..."
+echo "⏳ Waiting for service updates to complete..."
 
+# Wait for services to be stable
 aws ecs wait services-stable \
     --cluster $CLUSTER_NAME \
-    --services frontend-service api-service
+    --services workshop-frontend workshop-api
 
-echo "✅ Services đã ổn định"
+echo "✅ All services are stable với load balancer"
 ```
 
-## Bước 6: Kiểm tra Health Status
+## Bước 6: Verify Target Health
 
-### 6.1 Kiểm tra Target Health
+### 6.1 Check Target Group Health
 
 ```bash
-echo "🏥 Kiểm tra Target Health..."
+echo "🏥 Checking target group health..."
 
-echo "Frontend targets:"
-aws elbv2 describe-target-health --target-group-arn $FRONTEND_TG_ARN \
-    --query 'TargetHealthDescriptions[].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State}' \
-    --output table
+# Check frontend targets
+echo "=== Frontend Target Health ==="
+aws elbv2 describe-target-health \
+    --target-group-arn $FRONTEND_TG_ARN \
+    --query 'TargetHealthDescriptions[].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State,Description:TargetHealth.Description}'
 
-echo "API targets:"
-aws elbv2 describe-target-health --target-group-arn $API_TG_ARN \
-    --query 'TargetHealthDescriptions[].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State}' \
-    --output table
+# Check API targets
+echo "=== API Target Health ==="
+aws elbv2 describe-target-health \
+    --target-group-arn $API_TG_ARN \
+    --query 'TargetHealthDescriptions[].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State,Description:TargetHealth.Description}'
 ```
 
-### 6.2 Chờ targets healthy
+### 6.2 Wait for Healthy Targets
 
 ```bash
-echo "⏳ Chờ targets healthy..."
+echo "⏳ Waiting for targets to become healthy..."
 
-# Function để check target health
+# Function to check if targets are healthy
 check_target_health() {
     local tg_arn=$1
-    local tg_name=$2
-    
-    while true; do
-        healthy_count=$(aws elbv2 describe-target-health --target-group-arn $tg_arn \
-            --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' --output text)
-        total_count=$(aws elbv2 describe-target-health --target-group-arn $tg_arn \
-            --query 'length(TargetHealthDescriptions)' --output text)
-        
-        echo "$tg_name: $healthy_count/$total_count healthy"
-        
-        if [ "$healthy_count" -gt 0 ]; then
-            echo "✅ $tg_name có targets healthy!"
-            break
-        fi
-        
-        sleep 15
-    done
+    local healthy_count=$(aws elbv2 describe-target-health \
+        --target-group-arn $tg_arn \
+        --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])')
+    echo $healthy_count
 }
 
-check_target_health $FRONTEND_TG_ARN "Frontend"
-check_target_health $API_TG_ARN "API"
+# Wait for at least 1 healthy target in each group
+while true; do
+    frontend_healthy=$(check_target_health $FRONTEND_TG_ARN)
+    api_healthy=$(check_target_health $API_TG_ARN)
+    
+    echo "Frontend healthy targets: $frontend_healthy"
+    echo "API healthy targets: $api_healthy"
+    
+    if [ "$frontend_healthy" -gt 0 ] && [ "$api_healthy" -gt 0 ]; then
+        echo "✅ All target groups have healthy targets"
+        break
+    fi
+    
+    echo "⏳ Waiting for targets to become healthy..."
+    sleep 30
+done
 ```
 
 ## Bước 7: Test Load Balancer
 
-### 7.1 Test Frontend
+### 7.1 Test HTTP Endpoints
 
 ```bash
-echo "🧪 Test Frontend endpoint..."
+echo "🧪 Testing Load Balancer endpoints..."
 
-curl -s -o /dev/null -w "Status: %{http_code}\nTime: %{time_total}s\n" http://$ALB_DNS/
+# Test frontend endpoint
+echo "=== Testing Frontend ==="
+curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" http://$ALB_DNS/
 
-echo "🌐 Frontend URL: http://$ALB_DNS/"
+# Test API endpoint
+echo "=== Testing API ==="
+curl -s -o /dev/null -w "HTTP Status: %{http_code}\nResponse Time: %{time_total}s\n" http://$ALB_DNS/api/
+
+# Test health endpoint
+echo "=== Testing Health Check ==="
+curl -s -w "HTTP Status: %{http_code}\n" http://$ALB_DNS/health
 ```
 
-### 7.2 Test API
+### 7.2 Load Testing
 
 ```bash
-echo "🧪 Test API endpoint..."
+echo "🔄 Running basic load test..."
 
-curl -s -o /dev/null -w "Status: %{http_code}\nTime: %{time_total}s\n" http://$ALB_DNS/api/
-
-echo "🌐 API URL: http://$ALB_DNS/api/"
-```
-
-### 7.3 Test Health Check
-
-```bash
-echo "🧪 Test Health Check endpoint..."
-
-curl -s http://$ALB_DNS/health
-echo ""
-```
-
-### 7.4 Load Test (Optional)
-
-```bash
-echo "⚡ Chạy load test đơn giản..."
-
+# Simple load test với curl
 for i in {1..10}; do
     echo "Request $i:"
-    curl -s -o /dev/null -w "Status: %{http_code} - Time: %{time_total}s\n" http://$ALB_DNS/
+    curl -s -o /dev/null -w "Status: %{http_code}, Time: %{time_total}s\n" http://$ALB_DNS/
     sleep 1
 done
+
+echo "✅ Load test completed"
 ```
 
-## Bước 8: Monitoring và Metrics
+## Bước 8: Advanced Load Balancer Features
 
-### 8.1 Xem ALB Metrics
+### 8.1 Enable Access Logs
 
 ```bash
-echo "📊 ALB Metrics (5 phút gần nhất):"
+echo "📊 Enabling ALB Access Logs..."
 
-aws cloudwatch get-metric-statistics \
-    --namespace AWS/ApplicationELB \
-    --metric-name RequestCount \
-    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-) \
-    --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
-    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
-    --period 300 \
-    --statistics Sum \
-    --query 'Datapoints[0].Sum' \
-    --output text
+# Create S3 bucket cho access logs
+BUCKET_NAME="ecs-workshop-alb-logs-$(date +%s)"
+aws s3 mb s3://$BUCKET_NAME --region $AWS_DEFAULT_REGION
+
+# Set bucket policy cho ALB access logs
+cat > alb-logs-policy.json << EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::$(aws elbv2 describe-load-balancer-attributes --load-balancer-arn $ALB_ARN --query 'Attributes[?Key==`access_logs.s3.bucket`].Value' --output text | xargs aws sts get-caller-identity --query Account --output text):root"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::$BUCKET_NAME/AWSLogs/$(aws sts get-caller-identity --query Account --output text)/*"
+        }
+    ]
+}
+EOF
+
+aws s3api put-bucket-policy --bucket $BUCKET_NAME --policy file://alb-logs-policy.json
+
+# Enable access logs
+aws elbv2 modify-load-balancer-attributes \
+    --load-balancer-arn $ALB_ARN \
+    --attributes Key=access_logs.s3.enabled,Value=true Key=access_logs.s3.bucket,Value=$BUCKET_NAME
+
+echo "✅ Access logs enabled: s3://$BUCKET_NAME"
+echo "export ALB_LOGS_BUCKET=$BUCKET_NAME" >> workshop-env.sh
 ```
 
-### 8.2 Xem Target Group Metrics
+### 8.2 Configure Connection Draining
 
 ```bash
-echo "📈 Target Group Health:"
+echo "🔄 Configuring connection draining..."
 
-aws cloudwatch get-metric-statistics \
-    --namespace AWS/ApplicationELB \
-    --metric-name HealthyHostCount \
-    --dimensions Name=TargetGroup,Value=$(echo $FRONTEND_TG_ARN | cut -d'/' -f2-) \
-    --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
-    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
-    --period 300 \
-    --statistics Average \
-    --query 'Datapoints[0].Average' \
-    --output text
+# Set deregistration delay
+aws elbv2 modify-target-group-attributes \
+    --target-group-arn $FRONTEND_TG_ARN \
+    --attributes Key=deregistration_delay.timeout_seconds,Value=30
+
+aws elbv2 modify-target-group-attributes \
+    --target-group-arn $API_TG_ARN \
+    --attributes Key=deregistration_delay.timeout_seconds,Value=30
+
+echo "✅ Connection draining configured (30 seconds)"
 ```
 
-## Bước 9: Xem kết quả trong Console
-
-### 9.1 Load Balancer Console
-
-1. Mở [EC2 Console](https://console.aws.amazon.com/ec2/)
-2. Chọn "Load Balancers"
-3. Click vào "ecs-workshop-alb"
-4. Xem tabs:
-   - **Description:** Basic info
-   - **Listeners:** Routing rules
-   - **Monitoring:** Metrics và graphs
-
-![ALB Details](/images/alb-details.png)
-
-### 9.2 Target Groups Console
-
-1. Chọn "Target Groups"
-2. Click vào "frontend-tg" hoặc "api-tg"
-3. Tab "Targets" - xem health status
-4. Tab "Monitoring" - xem metrics
-
-![Target Groups Health](/images/target-groups-health.png)
-
-### 9.3 CloudWatch Metrics
-
-1. Mở [CloudWatch Console](https://console.aws.amazon.com/cloudwatch/)
-2. Chọn "Metrics" → "All metrics"
-3. Chọn "AWS/ApplicationELB"
-4. Xem metrics như RequestCount, ResponseTime, HealthyHostCount
-
-## Troubleshooting
-
-### Vấn đề thường gặp:
-
-**Targets không healthy:**
-```bash
-# Kiểm tra security groups
-aws ec2 describe-security-groups --group-ids $ECS_SG $ALB_SG
-
-# Kiểm tra task health
-aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name frontend-service --query 'taskArns[0]' --output text)
-```
-
-**ALB không accessible:**
-```bash
-# Kiểm tra ALB security group
-aws ec2 describe-security-groups --group-ids $ALB_SG --query 'SecurityGroups[0].IpPermissions'
-
-# Kiểm tra subnets
-aws ec2 describe-subnets --subnet-ids $PUBLIC_SUBNET_1 $PUBLIC_SUBNET_2
-```
-
-**503 Service Unavailable:**
-```bash
-# Kiểm tra target registration
-aws elbv2 describe-target-health --target-group-arn $FRONTEND_TG_ARN
-
-# Xem ECS service events
-aws ecs describe-services --cluster $CLUSTER_NAME --services frontend-service --query 'services[0].events[0:5]'
-```
-
-## Advanced Configuration
-
-### Sticky Sessions (nếu cần)
+### 8.3 Enable Sticky Sessions (if needed)
 
 ```bash
+echo "🍪 Configuring sticky sessions cho frontend..."
+
 # Enable sticky sessions cho frontend
 aws elbv2 modify-target-group-attributes \
     --target-group-arn $FRONTEND_TG_ARN \
     --attributes Key=stickiness.enabled,Value=true Key=stickiness.type,Value=lb_cookie Key=stickiness.lb_cookie.duration_seconds,Value=86400
+
+echo "✅ Sticky sessions enabled cho frontend"
 ```
 
-### Custom Health Check
+## Bước 9: Monitoring và Metrics
+
+### 9.1 CloudWatch Metrics
 
 ```bash
-# Thay đổi health check path
-aws elbv2 modify-target-group \
-    --target-group-arn $API_TG_ARN \
-    --health-check-path /api/health \
-    --health-check-interval-seconds 15
+echo "📈 Setting up CloudWatch metrics..."
+
+# Get ALB metrics
+aws cloudwatch get-metric-statistics \
+    --namespace AWS/ApplicationELB \
+    --metric-name RequestCount \
+    --dimensions Name=LoadBalancer,Value=$(echo $ALB_ARN | cut -d'/' -f2-) \
+    --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+    --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+    --period 300 \
+    --statistics Sum \
+    --query 'Datapoints[].{Time:Timestamp,Requests:Sum}'
+```
+
+### 9.2 Create CloudWatch Dashboard
+
+```bash
+echo "📊 Creating ALB Dashboard..."
+
+# Create dashboard cho ALB metrics
+cat > alb-dashboard.json << EOF
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "$(echo $ALB_ARN | cut -d'/' -f2-)"],
+                    [".", "TargetResponseTime", ".", "."],
+                    [".", "HTTPCode_Target_2XX_Count", ".", "."],
+                    [".", "HTTPCode_Target_4XX_Count", ".", "."],
+                    [".", "HTTPCode_Target_5XX_Count", ".", "."]
+                ],
+                "period": 300,
+                "stat": "Sum",
+                "region": "$AWS_DEFAULT_REGION",
+                "title": "ALB Metrics"
+            }
+        },
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["AWS/ApplicationELB", "HealthyHostCount", "TargetGroup", "$(echo $FRONTEND_TG_ARN | cut -d'/' -f2-)"],
+                    [".", "UnHealthyHostCount", ".", "."],
+                    [".", "HealthyHostCount", ".", "$(echo $API_TG_ARN | cut -d'/' -f2-)"],
+                    [".", "UnHealthyHostCount", ".", "."]
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "$AWS_DEFAULT_REGION",
+                "title": "Target Health"
+            }
+        }
+    ]
+}
+EOF
+
+aws cloudwatch put-dashboard \
+    --dashboard-name "ECS-Workshop-ALB" \
+    --dashboard-body file://alb-dashboard.json
+
+echo "✅ ALB Dashboard created"
+```
+
+## Bước 10: SSL/TLS Configuration (Optional)
+
+### 10.1 Request SSL Certificate
+
+```bash
+echo "🔒 Requesting SSL Certificate (optional)..."
+
+# Request certificate từ ACM (requires domain validation)
+# CERT_ARN=$(aws acm request-certificate \
+#     --domain-name your-domain.com \
+#     --validation-method DNS \
+#     --query 'CertificateArn' \
+#     --output text)
+
+# echo "✅ Certificate requested: $CERT_ARN"
+# echo "export CERT_ARN=$CERT_ARN" >> workshop-env.sh
+
+echo "ℹ️  SSL certificate setup skipped (requires domain ownership)"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**1. Targets unhealthy:**
+```bash
+# Check target health details
+aws elbv2 describe-target-health --target-group-arn $FRONTEND_TG_ARN
+
+# Check security group rules
+aws ec2 describe-security-groups --group-ids $ECS_SG $ALB_SG
+```
+
+**2. ALB not accessible:**
+```bash
+# Check ALB state
+aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN
+
+# Check security group rules
+aws ec2 describe-security-groups --group-ids $ALB_SG --query 'SecurityGroups[0].IpPermissions'
+```
+
+**3. 503 Service Unavailable:**
+```bash
+# Check if targets are registered
+aws elbv2 describe-target-health --target-group-arn $FRONTEND_TG_ARN
+
+# Check ECS service status
+aws ecs describe-services --cluster $CLUSTER_NAME --services workshop-frontend
+```
+
+**4. Path routing not working:**
+```bash
+# Check listener rules
+aws elbv2 describe-rules --listener-arn $LISTENER_ARN
+
+# Test specific paths
+curl -v http://$ALB_DNS/api/
 ```
 
 ## Tóm tắt
 
-Bạn đã cấu hình thành công:
+Bạn đã thành công cấu hình Load Balancing với:
 
-- ✅ Application Load Balancer với public access
-- ✅ Target Groups cho Frontend và API services  
-- ✅ Path-based routing (/api/* → API, /* → Frontend)
-- ✅ Health checking và monitoring
-- ✅ Integration với ECS services
-- ✅ Load balancing across multiple AZs
+- ✅ **Application Load Balancer** trong public subnets
+- ✅ **Target Groups** cho frontend và API services
+- ✅ **Path-based Routing** (/api/* → API service)
+- ✅ **Health Checks** và monitoring
+- ✅ **ECS Integration** với automatic target registration
+- ✅ **CloudWatch Metrics** và dashboard
+- ✅ **Access Logs** và advanced features
 
-**Kết quả:** 
-- Frontend: `http://$ALB_DNS/`
-- API: `http://$ALB_DNS/api/`
-- Health: `http://$ALB_DNS/health`
+**Load Balancing Architecture:**
+```
+Internet → ALB (Public Subnets)
+├── / → Frontend Target Group → Frontend ECS Tasks
+├── /api/* → API Target Group → API ECS Tasks
+└── /health → Fixed Response (200 OK)
+
+Traffic Flow:
+Client → ALB → Target Group → Healthy ECS Tasks
+```
 
 ## Bước tiếp theo
 
-Load Balancer đã hoạt động! Tiếp theo chúng ta sẽ tăng cường bảo mật với [Security và Network Policies](../6-security/).
+Load Balancer đã hoạt động! Tiếp theo chúng ta sẽ [tăng cường Security](../6-security/) với advanced security groups, secrets management, và network monitoring.
 
 ---
 
-**💡 Tip:** ALB tự động phân phối traffic đến healthy targets và có thể handle hàng nghìn requests/second.
+{{< alert type="tip" title="Pro Tip" >}}
+Sử dụng `curl -v http://$ALB_DNS/` để test load balancer và xem response headers!
+{{< /alert >}}

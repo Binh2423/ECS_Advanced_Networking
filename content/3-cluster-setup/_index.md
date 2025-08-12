@@ -6,526 +6,561 @@ chapter : false
 pre : " <b> 3. </b> "
 ---
 
-# Xây dựng VPC và ECS Cluster
-
 ## Tổng quan
 
-Chúng ta sẽ tạo một mạng riêng (VPC) và ECS cluster như thế này:
+Trong phần này, chúng ta sẽ tạo ECS Cluster và deploy các containerized applications. Cluster sẽ chạy trên VPC đã tạo ở phần trước.
 
-```
-Internet
-    ↓
-┌─────────────────────────────────────┐
-│           VPC (10.0.0.0/16)         │
-│  ┌─────────────┐  ┌─────────────┐   │
-│  │Public Subnet│  │Public Subnet│   │
-│  │10.0.1.0/24  │  │10.0.2.0/24  │   │
-│  └─────────────┘  └─────────────┘   │
-│  ┌─────────────┐  ┌─────────────┐   │
-│  │Private Sub. │  │Private Sub. │   │
-│  │10.0.3.0/24  │  │10.0.4.0/24  │   │
-│  │[ECS Tasks]  │  │[ECS Tasks]  │   │
-│  └─────────────┘  └─────────────┘   │
-└─────────────────────────────────────┘
-```
+{{< alert type="info" title="Điều kiện tiên quyết" >}}
+Đảm bảo bạn đã hoàn thành [Thiết lập VPC](../1-introduction/) và có file `workshop-env.sh` với tất cả environment variables.
+{{< /alert >}}
 
-## Bước 1: Tạo VPC
-
-### 1.1 Chuẩn bị
+## Bước 1: Load Environment
 
 ```bash
-# Di chuyển vào thư mục làm việc
+# Load workshop environment
 cd ~/ecs-workshop
+source workshop-env.sh
 
-# Tạo file lưu environment variables
-touch workshop-env.sh
+# Verify VPC exists
+if [ -z "$VPC_ID" ]; then
+    echo "❌ VPC_ID not found. Please complete VPC setup first."
+    exit 1
+fi
+
+echo "✅ Using VPC: $VPC_ID"
 ```
 
-### 1.2 Tạo VPC
+## Bước 2: Tạo ECS Cluster
+
+### 2.1 Tạo ECS Cluster với Fargate
+
+{{< console-screenshot src="images/ecs-console-clusters.png" alt="ECS Console Clusters" caption="ECS Console hiển thị danh sách clusters và tình trạng hoạt động" service="ECS Console" >}}
 
 ```bash
-# Tạo VPC với dải IP 10.0.0.0/16
-VPC_ID=$(aws ec2 create-vpc \
-    --cidr-block 10.0.0.0/16 \
-    --tag-specifications 'ResourceType=vpc,Tags=[{Key=Name,Value=ECS-Workshop-VPC}]' \
-    --query 'Vpc.VpcId' \
-    --output text)
+echo "🐳 Tạo ECS Cluster..."
 
-echo "✅ VPC đã tạo: $VPC_ID"
-
-# Lưu VPC ID
-echo "export VPC_ID=$VPC_ID" >> workshop-env.sh
-```
-
-**Giải thích:**
-- `10.0.0.0/16`: Dải IP cho VPC (65,536 địa chỉ IP)
-- `--tag-specifications`: Đặt tên để dễ nhận biết
-- `--query`: Chỉ lấy VPC ID từ kết quả
-
-### 1.3 Xem VPC trong Console
-
-1. Mở [VPC Console](https://console.aws.amazon.com/vpc/)
-2. Chọn "Your VPCs" 
-3. Tìm VPC tên "ECS-Workshop-VPC"
-4. Kiểm tra State = "Available"
-
-![VPC Console Overview](/images/vpc-console-overview.png)
-
-### 1.4 Bật DNS Support
-
-```bash
-# Bật DNS hostnames (cần cho Service Discovery)
-aws ec2 modify-vpc-attribute \
-    --vpc-id $VPC_ID \
-    --enable-dns-hostnames
-
-# Bật DNS resolution
-aws ec2 modify-vpc-attribute \
-    --vpc-id $VPC_ID \
-    --enable-dns-support
-
-echo "✅ DNS support đã bật"
-```
-
-## Bước 2: Tạo Subnets
-
-### 2.1 Lấy Availability Zones
-
-```bash
-# Lấy 2 AZ đầu tiên
-AZ1=$(aws ec2 describe-availability-zones --query 'AvailabilityZones[0].ZoneName' --output text)
-AZ2=$(aws ec2 describe-availability-zones --query 'AvailabilityZones[1].ZoneName' --output text)
-
-echo "Sử dụng AZ1: $AZ1"
-echo "Sử dụng AZ2: $AZ2"
-
-# Lưu vào file
-echo "export AZ1=$AZ1" >> workshop-env.sh
-echo "export AZ2=$AZ2" >> workshop-env.sh
-```
-
-### 2.2 Tạo Public Subnets
-
-**Public Subnet 1:**
-```bash
-PUBLIC_SUBNET_1=$(aws ec2 create-subnet \
-    --vpc-id $VPC_ID \
-    --cidr-block 10.0.1.0/24 \
-    --availability-zone $AZ1 \
-    --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=Public-Subnet-1}]' \
-    --query 'Subnet.SubnetId' \
-    --output text)
-
-echo "✅ Public Subnet 1: $PUBLIC_SUBNET_1"
-```
-
-**Public Subnet 2:**
-```bash
-PUBLIC_SUBNET_2=$(aws ec2 create-subnet \
-    --vpc-id $VPC_ID \
-    --cidr-block 10.0.2.0/24 \
-    --availability-zone $AZ2 \
-    --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=Public-Subnet-2}]' \
-    --query 'Subnet.SubnetId' \
-    --output text)
-
-echo "✅ Public Subnet 2: $PUBLIC_SUBNET_2"
-
-# Lưu vào file
-echo "export PUBLIC_SUBNET_1=$PUBLIC_SUBNET_1" >> workshop-env.sh
-echo "export PUBLIC_SUBNET_2=$PUBLIC_SUBNET_2" >> workshop-env.sh
-```
-
-### 2.3 Tạo Private Subnets
-
-**Private Subnet 1:**
-```bash
-PRIVATE_SUBNET_1=$(aws ec2 create-subnet \
-    --vpc-id $VPC_ID \
-    --cidr-block 10.0.3.0/24 \
-    --availability-zone $AZ1 \
-    --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=Private-Subnet-1}]' \
-    --query 'Subnet.SubnetId' \
-    --output text)
-
-echo "✅ Private Subnet 1: $PRIVATE_SUBNET_1"
-```
-
-**Private Subnet 2:**
-```bash
-PRIVATE_SUBNET_2=$(aws ec2 create-subnet \
-    --vpc-id $VPC_ID \
-    --cidr-block 10.0.4.0/24 \
-    --availability-zone $AZ2 \
-    --tag-specifications 'ResourceType=subnet,Tags=[{Key=Name,Value=Private-Subnet-2}]' \
-    --query 'Subnet.SubnetId' \
-    --output text)
-
-echo "✅ Private Subnet 2: $PRIVATE_SUBNET_2"
-
-# Lưu vào file
-echo "export PRIVATE_SUBNET_1=$PRIVATE_SUBNET_1" >> workshop-env.sh
-echo "export PRIVATE_SUBNET_2=$PRIVATE_SUBNET_2" >> workshop-env.sh
-```
-
-### 2.4 Xem Subnets trong Console
-
-1. Trong [VPC Console](https://console.aws.amazon.com/vpc/), chọn "Subnets"
-2. Kiểm tra 4 subnets đã tạo
-3. Xem Availability Zone của từng subnet
-
-![Subnets Console](/images/subnets-console.png)
-
-## Bước 3: Tạo Internet Gateway
-
-### 3.1 Tạo và gắn Internet Gateway
-
-```bash
-# Tạo Internet Gateway
-IGW_ID=$(aws ec2 create-internet-gateway \
-    --tag-specifications 'ResourceType=internet-gateway,Tags=[{Key=Name,Value=ECS-Workshop-IGW}]' \
-    --query 'InternetGateway.InternetGatewayId' \
-    --output text)
-
-echo "✅ Internet Gateway: $IGW_ID"
-
-# Gắn vào VPC
-aws ec2 attach-internet-gateway \
-    --internet-gateway-id $IGW_ID \
-    --vpc-id $VPC_ID
-
-echo "✅ Internet Gateway đã gắn vào VPC"
-
-# Lưu vào file
-echo "export IGW_ID=$IGW_ID" >> workshop-env.sh
-```
-
-**Giải thích:**
-- Internet Gateway cho phép VPC kết nối internet
-- Cần thiết cho public subnets
-
-## Bước 4: Tạo NAT Gateways
-
-### 4.1 Tạo Elastic IPs
-
-```bash
-# Tạo Elastic IP cho NAT Gateway 1
-EIP_1=$(aws ec2 allocate-address \
-    --domain vpc \
-    --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=NAT-EIP-1}]' \
-    --query 'AllocationId' \
-    --output text)
-
-# Tạo Elastic IP cho NAT Gateway 2  
-EIP_2=$(aws ec2 allocate-address \
-    --domain vpc \
-    --tag-specifications 'ResourceType=elastic-ip,Tags=[{Key=Name,Value=NAT-EIP-2}]' \
-    --query 'AllocationId' \
-    --output text)
-
-echo "✅ Elastic IPs: $EIP_1, $EIP_2"
-```
-
-### 4.2 Tạo NAT Gateways
-
-```bash
-# NAT Gateway 1 (trong Public Subnet 1)
-NAT_GW_1=$(aws ec2 create-nat-gateway \
-    --subnet-id $PUBLIC_SUBNET_1 \
-    --allocation-id $EIP_1 \
-    --tag-specifications 'ResourceType=nat-gateway,Tags=[{Key=Name,Value=NAT-GW-1}]' \
-    --query 'NatGateway.NatGatewayId' \
-    --output text)
-
-# NAT Gateway 2 (trong Public Subnet 2)
-NAT_GW_2=$(aws ec2 create-nat-gateway \
-    --subnet-id $PUBLIC_SUBNET_2 \
-    --allocation-id $EIP_2 \
-    --tag-specifications 'ResourceType=nat-gateway,Tags=[{Key=Name,Value=NAT-GW-2}]' \
-    --query 'NatGateway.NatGatewayId' \
-    --output text)
-
-echo "✅ NAT Gateways: $NAT_GW_1, $NAT_GW_2"
-
-# Lưu vào file
-echo "export NAT_GW_1=$NAT_GW_1" >> workshop-env.sh
-echo "export NAT_GW_2=$NAT_GW_2" >> workshop-env.sh
-```
-
-### 4.3 Chờ NAT Gateways sẵn sàng
-
-```bash
-echo "⏳ Đang chờ NAT Gateways sẵn sàng (5-10 phút)..."
-aws ec2 wait nat-gateway-available --nat-gateway-ids $NAT_GW_1 $NAT_GW_2
-echo "✅ NAT Gateways đã sẵn sàng!"
-```
-
-**Giải thích:**
-- NAT Gateway cho phép private subnets truy cập internet
-- Cần 1 NAT Gateway per AZ cho high availability
-
-## Bước 5: Tạo Route Tables
-
-### 5.1 Tạo Route Tables
-
-```bash
-# Public Route Table
-PUBLIC_RT=$(aws ec2 create-route-table \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=Public-RT}]' \
-    --query 'RouteTable.RouteTableId' \
-    --output text)
-
-# Private Route Table 1
-PRIVATE_RT_1=$(aws ec2 create-route-table \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=Private-RT-1}]' \
-    --query 'RouteTable.RouteTableId' \
-    --output text)
-
-# Private Route Table 2
-PRIVATE_RT_2=$(aws ec2 create-route-table \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=route-table,Tags=[{Key=Name,Value=Private-RT-2}]' \
-    --query 'RouteTable.RouteTableId' \
-    --output text)
-
-echo "✅ Route Tables tạo xong"
-
-# Lưu vào file
-echo "export PRIVATE_RT_1=$PRIVATE_RT_1" >> workshop-env.sh
-echo "export PRIVATE_RT_2=$PRIVATE_RT_2" >> workshop-env.sh
-```
-
-### 5.2 Tạo Routes
-
-```bash
-# Route từ Public RT đến Internet Gateway
-aws ec2 create-route \
-    --route-table-id $PUBLIC_RT \
-    --destination-cidr-block 0.0.0.0/0 \
-    --gateway-id $IGW_ID
-
-# Route từ Private RT 1 đến NAT Gateway 1
-aws ec2 create-route \
-    --route-table-id $PRIVATE_RT_1 \
-    --destination-cidr-block 0.0.0.0/0 \
-    --nat-gateway-id $NAT_GW_1
-
-# Route từ Private RT 2 đến NAT Gateway 2
-aws ec2 create-route \
-    --route-table-id $PRIVATE_RT_2 \
-    --destination-cidr-block 0.0.0.0/0 \
-    --nat-gateway-id $NAT_GW_2
-
-echo "✅ Routes đã tạo"
-```
-
-### 5.3 Gắn Route Tables vào Subnets
-
-```bash
-# Gắn Public Route Table vào Public Subnets
-aws ec2 associate-route-table --subnet-id $PUBLIC_SUBNET_1 --route-table-id $PUBLIC_RT
-aws ec2 associate-route-table --subnet-id $PUBLIC_SUBNET_2 --route-table-id $PUBLIC_RT
-
-# Gắn Private Route Tables vào Private Subnets
-aws ec2 associate-route-table --subnet-id $PRIVATE_SUBNET_1 --route-table-id $PRIVATE_RT_1
-aws ec2 associate-route-table --subnet-id $PRIVATE_SUBNET_2 --route-table-id $PRIVATE_RT_2
-
-echo "✅ Route Tables đã gắn vào Subnets"
-```
-
-![Route Tables Console](/images/route-tables-console.png)
-
-## Bước 6: Tạo Security Groups
-
-### 6.1 Security Group cho Load Balancer
-
-```bash
-ALB_SG=$(aws ec2 create-security-group \
-    --group-name ECS-ALB-SG \
-    --description "Security group for Application Load Balancer" \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-ALB-SG}]' \
-    --query 'GroupId' \
-    --output text)
-
-echo "✅ ALB Security Group: $ALB_SG"
-
-# Cho phép HTTP và HTTPS từ internet
-aws ec2 authorize-security-group-ingress --group-id $ALB_SG --protocol tcp --port 80 --cidr 0.0.0.0/0
-aws ec2 authorize-security-group-ingress --group-id $ALB_SG --protocol tcp --port 443 --cidr 0.0.0.0/0
-```
-
-### 6.2 Security Group cho ECS Tasks
-
-```bash
-ECS_SG=$(aws ec2 create-security-group \
-    --group-name ECS-Tasks-SG \
-    --description "Security group for ECS tasks" \
-    --vpc-id $VPC_ID \
-    --tag-specifications 'ResourceType=security-group,Tags=[{Key=Name,Value=ECS-Tasks-SG}]' \
-    --query 'GroupId' \
-    --output text)
-
-echo "✅ ECS Security Group: $ECS_SG"
-
-# Cho phép traffic từ ALB
-aws ec2 authorize-security-group-ingress --group-id $ECS_SG --protocol tcp --port 80 --source-group $ALB_SG
-aws ec2 authorize-security-group-ingress --group-id $ECS_SG --protocol tcp --port 3000 --source-group $ALB_SG
-
-# Lưu vào file
-echo "export ALB_SG=$ALB_SG" >> workshop-env.sh
-echo "export ECS_SG=$ECS_SG" >> workshop-env.sh
-```
-
-![Security Groups Console](/images/security-groups-console.png)
-
-## Bước 7: Tạo ECS Cluster
-
-### 7.1 Tạo Cluster
-
-```bash
+# Tạo ECS Cluster
 CLUSTER_NAME="ecs-workshop-cluster"
-
 aws ecs create-cluster \
     --cluster-name $CLUSTER_NAME \
     --capacity-providers FARGATE \
     --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1 \
-    --tags key=Name,value=ECS-Workshop-Cluster
+    --tags key=Environment,value=workshop key=Project,value=ecs-networking
 
-echo "✅ ECS Cluster đã tạo: $CLUSTER_NAME"
-
-# Lưu vào file
+echo "✅ ECS Cluster created: $CLUSTER_NAME"
 echo "export CLUSTER_NAME=$CLUSTER_NAME" >> workshop-env.sh
 ```
 
-### 7.2 Xem Cluster trong Console
-
-1. Mở [ECS Console](https://console.aws.amazon.com/ecs/)
-2. Chọn "Clusters"
-3. Tìm cluster "ecs-workshop-cluster"
-4. Kiểm tra Status = "ACTIVE"
-
-![ECS Cluster Details](/images/ecs-cluster-details.png)
-
-## Bước 8: Tạo IAM Roles
-
-### 8.1 Task Execution Role
+### 2.2 Verify Cluster Creation
 
 ```bash
-# Tạo trust policy
-cat > ecs-task-execution-trust-policy.json << EOF
+# Kiểm tra cluster status
+aws ecs describe-clusters --clusters $CLUSTER_NAME --query 'clusters[0].{Name:clusterName,Status:status,ActiveServices:activeServicesCount,RunningTasks:runningTasksCount}'
+
+# Wait for cluster to be active
+echo "⏳ Waiting for cluster to be active..."
+aws ecs wait clusters-active --clusters $CLUSTER_NAME
+echo "✅ Cluster is active"
+```
+
+### 2.3 Xem Cluster Details trong Console
+
+{{< console-screenshot src="images/ecs-cluster-details.png" alt="ECS Cluster Details" caption="Chi tiết ECS cluster với thông tin về capacity providers, services và tasks" service="ECS Console" >}}
+
+## Bước 3: Tạo Task Definitions
+
+### 3.1 Frontend Service Task Definition
+
+```bash
+echo "📝 Tạo Task Definition cho Frontend Service..."
+
+# Tạo task definition cho frontend
+cat > frontend-task-definition.json << EOF
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ecs-tasks.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
+    "family": "workshop-frontend",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsTaskExecutionRole",
+    "containerDefinitions": [
+        {
+            "name": "frontend",
+            "image": "nginx:alpine",
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/workshop-frontend",
+                    "awslogs-region": "$AWS_DEFAULT_REGION",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "environment": [
+                {
+                    "name": "SERVICE_NAME",
+                    "value": "frontend"
+                }
+            ]
+        }
+    ]
 }
 EOF
 
-# Tạo role
-aws iam create-role \
-    --role-name ecsTaskExecutionRole \
-    --assume-role-policy-document file://ecs-task-execution-trust-policy.json
+# Register task definition
+FRONTEND_TASK_ARN=$(aws ecs register-task-definition \
+    --cli-input-json file://frontend-task-definition.json \
+    --query 'taskDefinition.taskDefinitionArn' \
+    --output text)
 
-# Gắn policy
-aws iam attach-role-policy \
-    --role-name ecsTaskExecutionRole \
-    --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-echo "✅ Task Execution Role đã tạo"
+echo "✅ Frontend Task Definition: $FRONTEND_TASK_ARN"
+echo "export FRONTEND_TASK_ARN=$FRONTEND_TASK_ARN" >> workshop-env.sh
 ```
 
-### 8.2 Task Role
+### 3.2 API Service Task Definition
 
 ```bash
-# Tạo task role
-aws iam create-role \
-    --role-name ecsTaskRole \
-    --assume-role-policy-document file://ecs-task-execution-trust-policy.json
+echo "📝 Tạo Task Definition cho API Service..."
 
-echo "✅ Task Role đã tạo"
-```
-
-## Bước 9: Kiểm tra kết quả
-
-### 9.1 Chạy script kiểm tra
-
-```bash
-cat > check-infrastructure.sh << 'EOF'
-#!/bin/bash
-source workshop-env.sh
-
-echo "=== Kiểm tra Infrastructure ==="
-
-echo "1. VPC: $VPC_ID"
-aws ec2 describe-vpcs --vpc-ids $VPC_ID --query 'Vpcs[0].State' --output text
-
-echo "2. Subnets:"
-aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[].{Name:Tags[?Key==`Name`].Value|[0],CIDR:CidrBlock,AZ:AvailabilityZone}' --output table
-
-echo "3. ECS Cluster:"
-aws ecs describe-clusters --clusters $CLUSTER_NAME --query 'clusters[0].status' --output text
-
-echo "=== Kiểm tra hoàn tất ==="
+# Tạo task definition cho API
+cat > api-task-definition.json << EOF
+{
+    "family": "workshop-api",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsTaskExecutionRole",
+    "containerDefinitions": [
+        {
+            "name": "api",
+            "image": "httpd:alpine",
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/workshop-api",
+                    "awslogs-region": "$AWS_DEFAULT_REGION",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "environment": [
+                {
+                    "name": "SERVICE_NAME",
+                    "value": "api"
+                }
+            ]
+        }
+    ]
+}
 EOF
 
-chmod +x check-infrastructure.sh
-./check-infrastructure.sh
+# Register task definition
+API_TASK_ARN=$(aws ecs register-task-definition \
+    --cli-input-json file://api-task-definition.json \
+    --query 'taskDefinition.taskDefinitionArn' \
+    --output text)
+
+echo "✅ API Task Definition: $API_TASK_ARN"
+echo "export API_TASK_ARN=$API_TASK_ARN" >> workshop-env.sh
 ```
 
-### 9.2 Xem tổng quan trong Console
+### 3.3 Database Service Task Definition
 
-**VPC Dashboard:**
-1. Mở [VPC Console](https://console.aws.amazon.com/vpc/)
-2. Chọn VPC của bạn
-3. Xem Resource map để thấy tổng quan
+```bash
+echo "📝 Tạo Task Definition cho Database Service..."
 
-![VPC Resource Map](/images/vpc-resource-map.png)
+# Tạo task definition cho database
+cat > database-task-definition.json << EOF
+{
+    "family": "workshop-database",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/ecsTaskExecutionRole",
+    "containerDefinitions": [
+        {
+            "name": "database",
+            "image": "redis:alpine",
+            "portMappings": [
+                {
+                    "containerPort": 6379,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/workshop-database",
+                    "awslogs-region": "$AWS_DEFAULT_REGION",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "environment": [
+                {
+                    "name": "SERVICE_NAME",
+                    "value": "database"
+                }
+            ]
+        }
+    ]
+}
+EOF
 
-**ECS Dashboard:**
-1. Mở [ECS Console](https://console.aws.amazon.com/ecs/)
-2. Chọn cluster của bạn
-3. Xem Services và Tasks tabs
+# Register task definition
+DATABASE_TASK_ARN=$(aws ecs register-task-definition \
+    --cli-input-json file://database-task-definition.json \
+    --query 'taskDefinition.taskDefinitionArn' \
+    --output text)
+
+echo "✅ Database Task Definition: $DATABASE_TASK_ARN"
+echo "export DATABASE_TASK_ARN=$DATABASE_TASK_ARN" >> workshop-env.sh
+```
+
+### 3.4 Xem Task Definitions trong Console
+
+{{< console-screenshot src="images/ecs-task-definitions.png" alt="ECS Task Definitions" caption="ECS Task Definitions console hiển thị các task definitions đã tạo với cấu hình chi tiết" service="ECS Console" >}}
+
+## Bước 4: Tạo CloudWatch Log Groups
+
+```bash
+echo "📊 Tạo CloudWatch Log Groups..."
+
+# Tạo log groups cho các services
+for service in frontend api database; do
+    aws logs create-log-group \
+        --log-group-name "/ecs/workshop-$service" \
+        --tags Environment=workshop,Project=ecs-networking
+    
+    # Set retention policy
+    aws logs put-retention-policy \
+        --log-group-name "/ecs/workshop-$service" \
+        --retention-in-days 7
+    
+    echo "✅ Log group created: /ecs/workshop-$service"
+done
+```
+
+## Bước 5: Deploy Services
+
+### 5.1 Deploy Frontend Service
+
+```bash
+echo "🚀 Deploy Frontend Service..."
+
+# Deploy frontend service
+FRONTEND_SERVICE=$(aws ecs create-service \
+    --cluster $CLUSTER_NAME \
+    --service-name workshop-frontend \
+    --task-definition workshop-frontend \
+    --desired-count 2 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
+    --tags key=Environment,value=workshop key=Service,value=frontend \
+    --query 'service.serviceName' \
+    --output text)
+
+echo "✅ Frontend Service deployed: $FRONTEND_SERVICE"
+echo "export FRONTEND_SERVICE=$FRONTEND_SERVICE" >> workshop-env.sh
+```
+
+### 5.2 Deploy API Service
+
+```bash
+echo "🚀 Deploy API Service..."
+
+# Deploy API service
+API_SERVICE=$(aws ecs create-service \
+    --cluster $CLUSTER_NAME \
+    --service-name workshop-api \
+    --task-definition workshop-api \
+    --desired-count 2 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
+    --tags key=Environment,value=workshop key=Service,value=api \
+    --query 'service.serviceName' \
+    --output text)
+
+echo "✅ API Service deployed: $API_SERVICE"
+echo "export API_SERVICE=$API_SERVICE" >> workshop-env.sh
+```
+
+### 5.3 Deploy Database Service
+
+```bash
+echo "🚀 Deploy Database Service..."
+
+# Deploy database service
+DATABASE_SERVICE=$(aws ecs create-service \
+    --cluster $CLUSTER_NAME \
+    --service-name workshop-database \
+    --task-definition workshop-database \
+    --desired-count 1 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[$PRIVATE_SUBNET_1,$PRIVATE_SUBNET_2],securityGroups=[$ECS_SG],assignPublicIp=DISABLED}" \
+    --tags key=Environment,value=workshop key=Service,value=database \
+    --query 'service.serviceName' \
+    --output text)
+
+echo "✅ Database Service deployed: $DATABASE_SERVICE"
+echo "export DATABASE_SERVICE=$DATABASE_SERVICE" >> workshop-env.sh
+```
+
+## Bước 6: Verify Deployments
+
+### 6.1 Check Service Status
+
+```bash
+echo "🔍 Checking service status..."
+
+# Check all services
+aws ecs describe-services \
+    --cluster $CLUSTER_NAME \
+    --services workshop-frontend workshop-api workshop-database \
+    --query 'services[].{Name:serviceName,Status:status,Running:runningCount,Desired:desiredCount,Pending:pendingCount}'
+```
+
+### 6.2 Wait for Services to be Stable
+
+```bash
+echo "⏳ Waiting for services to be stable..."
+
+# Wait for services to be stable
+aws ecs wait services-stable \
+    --cluster $CLUSTER_NAME \
+    --services workshop-frontend workshop-api workshop-database
+
+echo "✅ All services are stable"
+```
+
+### 6.3 Check Running Tasks
+
+```bash
+echo "📋 Listing running tasks..."
+
+# List running tasks
+aws ecs list-tasks \
+    --cluster $CLUSTER_NAME \
+    --query 'taskArns[]' \
+    --output table
+
+# Get task details
+TASK_ARNS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --query 'taskArns' --output text)
+if [ ! -z "$TASK_ARNS" ]; then
+    aws ecs describe-tasks \
+        --cluster $CLUSTER_NAME \
+        --tasks $TASK_ARNS \
+        --query 'tasks[].{TaskArn:taskArn,LastStatus:lastStatus,HealthStatus:healthStatus,CreatedAt:createdAt}'
+fi
+```
+
+## Bước 7: Monitoring và Logs
+
+### 7.1 Check CloudWatch Logs
+
+{{< console-screenshot src="images/cloudwatch-logs.png" alt="CloudWatch Logs" caption="CloudWatch Logs console hiển thị log streams từ các ECS containers" service="CloudWatch Console" >}}
+
+```bash
+echo "📊 Checking CloudWatch logs..."
+
+# List log streams
+for service in frontend api database; do
+    echo "=== $service logs ==="
+    aws logs describe-log-streams \
+        --log-group-name "/ecs/workshop-$service" \
+        --order-by LastEventTime \
+        --descending \
+        --max-items 3 \
+        --query 'logStreams[].{Stream:logStreamName,LastEvent:lastEventTime}'
+done
+```
+
+### 7.2 View Recent Logs
+
+```bash
+# View recent logs from frontend service
+echo "📝 Recent frontend logs:"
+aws logs tail "/ecs/workshop-frontend" --since 10m --follow &
+TAIL_PID=$!
+
+# Let it run for a few seconds then stop
+sleep 5
+kill $TAIL_PID 2>/dev/null
+```
+
+## Bước 8: Service Discovery Setup
+
+### 8.1 Tạo Service Discovery Namespace
+
+```bash
+echo "🔍 Setting up Service Discovery..."
+
+# Tạo private DNS namespace
+NAMESPACE_ID=$(aws servicediscovery create-private-dns-namespace \
+    --name "workshop.local" \
+    --vpc $VPC_ID \
+    --description "Private namespace for ECS workshop" \
+    --query 'OperationId' \
+    --output text)
+
+# Wait for namespace creation
+echo "⏳ Waiting for namespace creation..."
+aws servicediscovery get-operation --operation-id $NAMESPACE_ID
+
+# Get namespace ID
+NAMESPACE_ID=$(aws servicediscovery list-namespaces \
+    --filters Name=TYPE,Values=DNS_PRIVATE \
+    --query 'Namespaces[?Name==`workshop.local`].Id' \
+    --output text)
+
+echo "✅ Service Discovery Namespace: $NAMESPACE_ID"
+echo "export NAMESPACE_ID=$NAMESPACE_ID" >> workshop-env.sh
+```
+
+### 8.2 Tạo Service Discovery Services
+
+```bash
+echo "🔍 Creating Service Discovery services..."
+
+# Tạo service discovery cho từng service
+for service_name in frontend api database; do
+    SERVICE_ID=$(aws servicediscovery create-service \
+        --name $service_name \
+        --dns-config NamespaceId=$NAMESPACE_ID,DnsRecords=[{Type=A,TTL=60}] \
+        --health-check-custom-config FailureThreshold=1 \
+        --description "Service discovery for $service_name" \
+        --query 'Service.Id' \
+        --output text)
+    
+    echo "✅ Service Discovery created for $service_name: $SERVICE_ID"
+    echo "export ${service_name^^}_DISCOVERY_ID=$SERVICE_ID" >> workshop-env.sh
+done
+```
+
+## Bước 9: Test Connectivity
+
+### 9.1 Test Internal Connectivity
+
+```bash
+echo "🧪 Testing internal connectivity..."
+
+# Get task IPs
+FRONTEND_TASK=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name workshop-frontend --query 'taskArns[0]' --output text)
+if [ "$FRONTEND_TASK" != "None" ]; then
+    FRONTEND_IP=$(aws ecs describe-tasks \
+        --cluster $CLUSTER_NAME \
+        --tasks $FRONTEND_TASK \
+        --query 'tasks[0].attachments[0].details[?name==`privateIPv4Address`].value' \
+        --output text)
+    
+    echo "✅ Frontend Task IP: $FRONTEND_IP"
+fi
+
+# Test từ một task khác (nếu có)
+API_TASK=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name workshop-api --query 'taskArns[0]' --output text)
+if [ "$API_TASK" != "None" ]; then
+    API_IP=$(aws ecs describe-tasks \
+        --cluster $CLUSTER_NAME \
+        --tasks $API_TASK \
+        --query 'tasks[0].attachments[0].details[?name==`privateIPv4Address`].value' \
+        --output text)
+    
+    echo "✅ API Task IP: $API_IP"
+fi
+```
+
+### 9.2 Verify Security Groups
+
+{{< console-screenshot src="images/security-groups-console.png" alt="Security Groups Console" caption="Security Groups console hiển thị rules cho ECS services và ALB" service="EC2 Console" >}}
+
+```bash
+echo "🔒 Verifying security group rules..."
+
+# Check ECS security group rules
+aws ec2 describe-security-groups \
+    --group-ids $ECS_SG \
+    --query 'SecurityGroups[0].{GroupId:GroupId,InboundRules:IpPermissions[].{Protocol:IpProtocol,Port:FromPort,Source:UserIdGroupPairs[0].GroupId}}'
+```
 
 ## Troubleshooting
 
-### Vấn đề thường gặp:
+### Common Issues
 
-**NAT Gateway mất quá lâu:**
-- NAT Gateway cần 5-10 phút để sẵn sàng
-- Sử dụng `aws ec2 wait nat-gateway-available`
+**1. Task fails to start:**
+```bash
+# Check task definition
+aws ecs describe-task-definition --task-definition workshop-frontend
 
-**Security Group rules không hoạt động:**
-- Kiểm tra VPC ID đúng không
-- Đảm bảo source security group tồn tại
+# Check service events
+aws ecs describe-services --cluster $CLUSTER_NAME --services workshop-frontend --query 'services[0].events[0:5]'
+```
 
-**ECS Cluster không tạo được:**
-- Kiểm tra quyền IAM
-- Đảm bảo region đúng
+**2. Tasks stuck in PENDING:**
+```bash
+# Check subnet và security group
+aws ec2 describe-subnets --subnet-ids $PRIVATE_SUBNET_1 $PRIVATE_SUBNET_2
+aws ec2 describe-security-groups --group-ids $ECS_SG
+```
+
+**3. No logs appearing:**
+```bash
+# Check log group exists
+aws logs describe-log-groups --log-group-name-prefix "/ecs/workshop"
+
+# Check task execution role
+aws iam get-role --role-name ecsTaskExecutionRole
+```
+
+**4. Service discovery not working:**
+```bash
+# Check namespace
+aws servicediscovery list-namespaces
+
+# Check services
+aws servicediscovery list-services --filters Name=NAMESPACE_ID,Values=$NAMESPACE_ID
+```
 
 ## Tóm tắt
 
-Bạn đã tạo thành công:
+Bạn đã thành công tạo và deploy:
 
-- ✅ VPC với 4 subnets (2 public, 2 private)
-- ✅ Internet Gateway và 2 NAT Gateways  
-- ✅ Route Tables với routing đúng
-- ✅ Security Groups cho ALB và ECS
-- ✅ ECS Fargate Cluster
-- ✅ IAM Roles cần thiết
+- ✅ **ECS Cluster** với Fargate capacity provider
+- ✅ **3 Task Definitions** (frontend, api, database)
+- ✅ **3 ECS Services** running trong private subnets
+- ✅ **CloudWatch Log Groups** cho monitoring
+- ✅ **Service Discovery** namespace và services
+- ✅ **Security Groups** configured properly
+
+**Current Architecture:**
+```
+ECS Cluster (workshop-cluster)
+├── Frontend Service (2 tasks) → nginx:alpine
+├── API Service (2 tasks) → httpd:alpine
+└── Database Service (1 task) → redis:alpine
+
+All running in Private Subnets với Service Discovery
+```
 
 ## Bước tiếp theo
 
-Infrastructure đã sẵn sàng! Chuyển đến [Triển khai Service Discovery](../4-service-discovery/) để các services có thể tìm thấy nhau.
+ECS Cluster đã sẵn sàng! Tiếp theo chúng ta sẽ [triển khai Service Discovery](../4-service-discovery/) để các services có thể tìm thấy nhau qua DNS.
 
 ---
 
-**💾 Lưu ý:** File `workshop-env.sh` chứa tất cả IDs cần thiết cho các bước tiếp theo.
+{{< alert type="tip" title="Pro Tip" >}}
+Sử dụng `aws ecs describe-services` để monitor service health và `aws logs tail` để xem real-time logs!
+{{< /alert >}}
