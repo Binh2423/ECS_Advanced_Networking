@@ -18,13 +18,13 @@ Mỗi loại subnet sẽ được đặt trong 2 Availability Zones khác nhau �
 
 ## Kiến trúc Subnets
 
-![Subnets Architecture](/images/3-cluster-setup/02-subnets/subnets-architecture.png)
+![Subnets Architecture]({{ "images/3-cluster-setup/02-subnets/subnets-architecture.png" | absURL }})
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Tạo Public Subnet 1
 
-![Create Subnet Form](/images/3-cluster-setup/02-subnets/02-create-subnet-form-public1.png)
+![Create Subnet Form]({{ "images/3-cluster-setup/02-subnets/02-create-subnet-form-public1.png" | absURL }})
 
 **Cấu hình:**
 - **VPC ID:** Chọn `ECS-Workshop-VPC`
@@ -44,15 +44,15 @@ Lặp lại quá trình tương tự cho:
 
 ### Bước 3: Xác minh kết quả
 
-![Subnets List Complete](/images/3-cluster-setup/02-subnets/03-subnets-list-complete.png)
+![Subnets List Complete]({{ "images/3-cluster-setup/02-subnets/03-subnets-list-complete.png" | absURL }})
 
 Tất cả 4 subnets sẽ xuất hiện trong danh sách với đúng CIDR blocks và AZs.
 
-![Public Subnet Details](/images/3-cluster-setup/02-subnets/04-subnet-details-public.png)
+![Public Subnet Details]({{ "images/3-cluster-setup/02-subnets/04-subnet-details-public.png" | absURL }})
 
 Public subnets sẽ có "Auto-assign public IPv4 address" = Yes.
 
-![Private Subnet Details](/images/3-cluster-setup/02-subnets/05-subnet-details-private.png)
+![Private Subnet Details]({{ "images/3-cluster-setup/02-subnets/05-subnet-details-private.png" | absURL }})
 
 Private subnets sẽ có "Auto-assign public IPv4 address" = No.
 

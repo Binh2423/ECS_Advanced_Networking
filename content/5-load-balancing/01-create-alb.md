@@ -14,13 +14,13 @@ Tạo Application Load Balancer trong public subnets để phân phối traffic 
 
 ## Kiến trúc ALB
 
-![ALB Detailed Architecture](/images/5-load-balancing/01-alb/alb-detailed-architecture.png)
+![ALB Detailed Architecture]({{ "images/5-load-balancing/01-alb/alb-detailed-architecture.png" | absURL }})
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Load Balancer Console
 
-![EC2 Load Balancers Menu](/images/5-load-balancing/01-alb/01-ec2-load-balancers-menu.png)
+![EC2 Load Balancers Menu]({{ "images/5-load-balancing/01-alb/01-ec2-load-balancers-menu.png" | absURL }})
 
 1. Mở AWS Console
 2. Tìm kiếm "EC2"
@@ -29,18 +29,18 @@ Tạo Application Load Balancer trong public subnets để phân phối traffic 
 
 ### Bước 2: Chọn Application Load Balancer
 
-![Load Balancers Dashboard](/images/5-load-balancing/01-alb/02-load-balancers-dashboard.png)
+![Load Balancers Dashboard]({{ "images/5-load-balancing/01-alb/02-load-balancers-dashboard.png" | absURL }})
 
 Trong Load Balancers dashboard, click **Create Load Balancer**.
 
-![Choose Load Balancer Type](/images/5-load-balancing/01-alb/03-choose-load-balancer-type.png)
+![Choose Load Balancer Type]({{ "images/5-load-balancing/01-alb/03-choose-load-balancer-type.png" | absURL }})
 
 - Chọn **Application Load Balancer**
 - Click **Create**
 
 ### Bước 3: Cấu hình ALB Basic Settings
 
-![ALB Basic Configuration](/images/5-load-balancing/01-alb/04-alb-basic-configuration.png)
+![ALB Basic Configuration]({{ "images/5-load-balancing/01-alb/04-alb-basic-configuration.png" | absURL }})
 
 **Cấu hình:**
 - **Name:** `ecs-workshop-alb`
@@ -49,7 +49,7 @@ Trong Load Balancers dashboard, click **Create Load Balancer**.
 
 ### Bước 4: Network Mapping
 
-![ALB Network Mapping](/images/5-load-balancing/01-alb/05-alb-network-mapping.png)
+![ALB Network Mapping]({{ "images/5-load-balancing/01-alb/05-alb-network-mapping.png" | absURL }})
 
 **Network mapping:**
 - **VPC:** Chọn `ECS-Workshop-VPC`
@@ -59,7 +59,7 @@ Trong Load Balancers dashboard, click **Create Load Balancer**.
 
 ### Bước 5: Security Groups
 
-![ALB Security Groups](/images/5-load-balancing/01-alb/06-alb-security-groups.png)
+![ALB Security Groups]({{ "images/5-load-balancing/01-alb/06-alb-security-groups.png" | absURL }})
 
 **Security groups:**
 - Chọn `ecs-workshop-alb-sg`
@@ -67,17 +67,17 @@ Trong Load Balancers dashboard, click **Create Load Balancer**.
 
 ### Bước 6: Listeners (tạm thời để trống)
 
-![ALB Listeners Empty](/images/5-load-balancing/01-alb/07-alb-listeners-empty.png)
+![ALB Listeners Empty]({{ "images/5-load-balancing/01-alb/07-alb-listeners-empty.png" | absURL }})
 
 Chúng ta sẽ cấu hình listeners sau khi tạo target groups.
 
 ### Bước 7: Xác minh ALB đã tạo
 
-![ALB Created Success](/images/5-load-balancing/01-alb/08-alb-created-success.png)
+![ALB Created Success]({{ "images/5-load-balancing/01-alb/08-alb-created-success.png" | absURL }})
 
 ALB sẽ được tạo với trạng thái "Provisioning", sau đó chuyển thành "Active".
 
-![ALB Details Page](/images/5-load-balancing/01-alb/09-alb-details-page.png)
+![ALB Details Page]({{ "images/5-load-balancing/01-alb/09-alb-details-page.png" | absURL }})
 
 ## Phương pháp 2: Sử dụng AWS CLI
 

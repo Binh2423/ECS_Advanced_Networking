@@ -10,7 +10,7 @@ pre : " <b> 7. </b> "
 
 ## Tổng quan
 
-{{< workshop-image src="/images/advanced-monitoring.png" alt="Advanced Monitoring" caption="Advanced monitoring và troubleshooting tools cho ECS" >}}
+{{< workshop-image src="{{ "images/advanced-monitoring.png" | absURL }}" alt="Advanced Monitoring" caption="Advanced monitoring và troubleshooting tools cho ECS" >}}
 
 ### Chúng ta sẽ tìm hiểu:
 
@@ -24,7 +24,7 @@ pre : " <b> 7. </b> "
 
 ### 1.1 Truy cập CloudWatch Console
 
-{{< console-screenshot src="/images/container-insights.png" alt="Container Insights" caption="Container Insights cung cấp detailed metrics cho containers" service="CloudWatch Console" >}}
+{{< console-screenshot src="{{ "images/container-insights.png" | absURL }}" alt="Container Insights" caption="Container Insights cung cấp detailed metrics cho containers" service="CloudWatch Console" >}}
 
 **Các bước:**
 1. Mở CloudWatch Console
@@ -52,7 +52,7 @@ echo "✅ Container Insights enabled"
 
 ### 1.3 Xem Container Insights Data
 
-{{< console-screenshot src="/images/container-insights-data.png" alt="Container Insights Data" caption="Container Insights hiển thị detailed performance metrics" service="CloudWatch Console" >}}
+{{< console-screenshot src="{{ "images/container-insights-data.png" | absURL }}" alt="Container Insights Data" caption="Container Insights hiển thị detailed performance metrics" service="CloudWatch Console" >}}
 
 ```bash
 # Kiểm tra Container Insights metrics
@@ -65,7 +65,7 @@ echo "✅ Container Insights data available"
 
 ### 2.1 Tạo X-Ray Service Map
 
-{{< console-screenshot src="/images/xray-service-map.png" alt="X-Ray Service Map" caption="X-Ray Service Map hiển thị service dependencies" service="X-Ray Console" >}}
+{{< console-screenshot src="{{ "images/xray-service-map.png" | absURL }}" alt="X-Ray Service Map" caption="X-Ray Service Map hiển thị service dependencies" service="X-Ray Console" >}}
 
 ```bash
 # Tạo X-Ray sampling rule
@@ -155,7 +155,7 @@ echo "✅ X-Ray task definition prepared"
 
 ### 3.1 Tạo SNS Topic
 
-{{< console-screenshot src="/images/sns-topic.png" alt="SNS Topic" caption="SNS Topic để gửi alerts qua email/SMS" service="SNS Console" >}}
+{{< console-screenshot src="{{ "images/sns-topic.png" | absURL }}" alt="SNS Topic" caption="SNS Topic để gửi alerts qua email/SMS" service="SNS Console" >}}
 
 ```bash
 # Tạo SNS topic cho alerts
@@ -198,7 +198,7 @@ echo "✅ Advanced alarms created"
 
 ### 4.1 Custom Metrics Dashboard
 
-{{< console-screenshot src="/images/performance-dashboard.png" alt="Performance Dashboard" caption="Custom dashboard cho performance monitoring" service="CloudWatch Console" >}}
+{{< console-screenshot src="{{ "images/performance-dashboard.png" | absURL }}" alt="Performance Dashboard" caption="Custom dashboard cho performance monitoring" service="CloudWatch Console" >}}
 
 ```bash
 # Tạo advanced dashboard
@@ -254,7 +254,7 @@ echo "✅ Advanced dashboard created"
 
 ### 5.1 ECS Exec Setup
 
-{{< console-screenshot src="/images/ecs-exec.png" alt="ECS Exec" caption="ECS Exec cho phép debug containers trực tiếp" service="ECS Console" >}}
+{{< console-screenshot src="{{ "images/ecs-exec.png" | absURL }}" alt="ECS Exec" caption="ECS Exec cho phép debug containers trực tiếp" service="ECS Console" >}}
 
 ```bash
 # Enable ECS Exec cho service
@@ -300,7 +300,7 @@ echo "✅ Troubleshooting commands executed"
 
 ### 6.1 CloudWatch Insights Queries
 
-{{< console-screenshot src="/images/cloudwatch-insights.png" alt="CloudWatch Insights" caption="CloudWatch Insights để query và analyze logs" service="CloudWatch Console" >}}
+{{< console-screenshot src="{{ "images/cloudwatch-insights.png" | absURL }}" alt="CloudWatch Insights" caption="CloudWatch Insights để query và analyze logs" service="CloudWatch Console" >}}
 
 ```bash
 # Tạo sample CloudWatch Insights queries
@@ -334,7 +334,7 @@ echo "✅ Sample queries provided"
 
 ### 7.1 Auto Scaling Configuration
 
-{{< console-screenshot src="/images/auto-scaling.png" alt="Auto Scaling" caption="ECS Auto Scaling để tự động scale services" service="ECS Console" >}}
+{{< console-screenshot src="{{ "images/auto-scaling.png" | absURL }}" alt="Auto Scaling" caption="ECS Auto Scaling để tự động scale services" service="ECS Console" >}}
 
 ```bash
 # Tạo Application Auto Scaling target
@@ -368,7 +368,7 @@ echo "✅ Auto Scaling configured"
 
 ### 7.2 Monitoring Health Check
 
-{{< console-screenshot src="/images/monitoring-health.png" alt="Monitoring Health" caption="Tổng quan health status của monitoring infrastructure" service="CloudWatch Console" >}}
+{{< console-screenshot src="{{ "images/monitoring-health.png" | absURL }}" alt="Monitoring Health" caption="Tổng quan health status của monitoring infrastructure" service="CloudWatch Console" >}}
 
 ```bash
 echo "📋 Advanced Monitoring Summary:"

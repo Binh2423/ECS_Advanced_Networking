@@ -16,7 +16,7 @@ Trong bước này, chúng ta sẽ tạo VPC chính với CIDR block 10.0.0.0/16
 
 ### Bước 1: Truy cập VPC Console
 
-![AWS Console Homepage](/images/3-cluster-setup/01-vpc/01-aws-console-homepage.png)
+![AWS Console Homepage]({{ "images/3-cluster-setup/01-vpc/01-aws-console-homepage.png" | absURL }})
 
 1. Đăng nhập vào AWS Console
 2. Tìm kiếm "VPC" trong thanh tìm kiếm
@@ -24,11 +24,11 @@ Trong bước này, chúng ta sẽ tạo VPC chính với CIDR block 10.0.0.0/16
 
 ### Bước 2: Tạo VPC mới
 
-![VPC Dashboard](/images/3-cluster-setup/01-vpc/02-vpc-dashboard.png)
+![VPC Dashboard]({{ "images/3-cluster-setup/01-vpc/02-vpc-dashboard.png" | absURL }})
 
 Trong VPC Console, click vào **Create VPC** để bắt đầu.
 
-![Create VPC Form](/images/3-cluster-setup/01-vpc/03-create-vpc-form.png)
+![Create VPC Form]({{ "images/3-cluster-setup/01-vpc/03-create-vpc-form.png" | absURL }})
 
 **Cấu hình:**
 - **Name tag:** `ECS-Workshop-VPC`
@@ -38,11 +38,11 @@ Trong VPC Console, click vào **Create VPC** để bắt đầu.
 
 ### Bước 3: Xác minh VPC đã tạo
 
-![VPC Created Success](/images/3-cluster-setup/01-vpc/04-vpc-created-success.png)
+![VPC Created Success]({{ "images/3-cluster-setup/01-vpc/04-vpc-created-success.png" | absURL }})
 
 VPC sẽ xuất hiện trong danh sách với trạng thái "Available".
 
-![VPC Details](/images/3-cluster-setup/01-vpc/05-vpc-details-page.png)
+![VPC Details]({{ "images/3-cluster-setup/01-vpc/05-vpc-details-page.png" | absURL }})
 
 ## Phương pháp 2: Sử dụng AWS CLI
 

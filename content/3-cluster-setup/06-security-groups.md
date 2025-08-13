@@ -16,7 +16,7 @@ Security Groups hoạt động như firewall ở instance level. Chúng ta sẽ 
 
 ## Kiến trúc Security
 
-![Security Groups Architecture](/images/3-cluster-setup/06-security/security-groups-architecture.png)
+![Security Groups Architecture]({{ "images/3-cluster-setup/06-security/security-groups-architecture.png" | absURL }})
 
 ## Security Group Rules
 
@@ -41,7 +41,7 @@ Security Groups hoạt động như firewall ở instance level. Chúng ta sẽ 
 
 ### Bước 1: Truy cập Security Groups Console
 
-![Security Groups Dashboard](/images/3-cluster-setup/06-security/01-security-groups-dashboard.png)
+![Security Groups Dashboard]({{ "images/3-cluster-setup/06-security/01-security-groups-dashboard.png" | absURL }})
 
 1. Mở AWS Console
 2. Tìm kiếm "EC2"
@@ -50,14 +50,14 @@ Security Groups hoạt động như firewall ở instance level. Chúng ta sẽ 
 
 ### Bước 2: Tạo ALB Security Group
 
-![Create ALB SG Form](/images/3-cluster-setup/06-security/02-create-alb-sg-form.png)
+![Create ALB SG Form]({{ "images/3-cluster-setup/06-security/02-create-alb-sg-form.png" | absURL }})
 
 **Cấu hình:**
 - **Security group name:** `ecs-workshop-alb-sg`
 - **Description:** `Security group for Application Load Balancer`
 - **VPC:** Chọn `ECS-Workshop-VPC`
 
-![ALB SG Inbound Rules](/images/3-cluster-setup/06-security/03-alb-sg-inbound-rules.png)
+![ALB SG Inbound Rules]({{ "images/3-cluster-setup/06-security/03-alb-sg-inbound-rules.png" | absURL }})
 
 **Inbound rules:**
 - Rule 1: HTTP (80) from Anywhere (0.0.0.0/0)
@@ -65,14 +65,14 @@ Security Groups hoạt động như firewall ở instance level. Chúng ta sẽ 
 
 ### Bước 3: Tạo ECS Security Group
 
-![Create ECS SG Form](/images/3-cluster-setup/06-security/04-create-ecs-sg-form.png)
+![Create ECS SG Form]({{ "images/3-cluster-setup/06-security/04-create-ecs-sg-form.png" | absURL }})
 
 **Cấu hình:**
 - **Security group name:** `ecs-workshop-ecs-sg`
 - **Description:** `Security group for ECS services`
 - **VPC:** Chọn `ECS-Workshop-VPC`
 
-![ECS SG Inbound Rules](/images/3-cluster-setup/06-security/05-ecs-sg-inbound-rules.png)
+![ECS SG Inbound Rules]({{ "images/3-cluster-setup/06-security/05-ecs-sg-inbound-rules.png" | absURL }})
 
 **Inbound rules:**
 - Rule 1: HTTP (80) from ALB Security Group
@@ -81,7 +81,7 @@ Security Groups hoạt động như firewall ở instance level. Chúng ta sẽ 
 
 ### Bước 4: Xác minh kết quả
 
-![Security Groups List](/images/3-cluster-setup/06-security/06-security-groups-list.png)
+![Security Groups List]({{ "images/3-cluster-setup/06-security/06-security-groups-list.png" | absURL }})
 
 Cả 2 Security Groups sẽ xuất hiện trong danh sách với đúng VPC.
 
