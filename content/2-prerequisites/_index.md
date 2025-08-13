@@ -20,7 +20,7 @@ pre : " <b> 2. </b> "
 
 ### 1.1 Truy cập AWS Console
 
-{{< console-screenshot src="images/aws-console-login.png" alt="AWS Console Login" caption="Đăng nhập vào AWS Console với tài khoản có quyền Administrator" service="AWS Console" >}}
+{{< console-screenshot src="/images/aws-console-login.png" alt="AWS Console Login" caption="Đăng nhập vào AWS Console với tài khoản có quyền Administrator" service="AWS Console" >}}
 
 **Các bước thực hiện:**
 1. Truy cập: https://console.aws.amazon.com
@@ -29,7 +29,7 @@ pre : " <b> 2. </b> "
 
 ### 1.2 Chọn Region
 
-{{< console-screenshot src="images/region-selection.png" alt="Region Selection" caption="Chọn region us-east-1 (N. Virginia) để thực hiện workshop" service="AWS Console" >}}
+{{< console-screenshot src="/images/region-selection.png" alt="Region Selection" caption="Chọn region us-east-1 (N. Virginia) để thực hiện workshop" service="AWS Console" >}}
 
 **Khuyến nghị region:**
 - **us-east-1** (N. Virginia) - Có đầy đủ services

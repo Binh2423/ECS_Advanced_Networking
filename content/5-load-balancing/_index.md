@@ -12,7 +12,7 @@ pre : " <b> 5. </b> "
 
 Application Load Balancer (ALB) là thành phần quan trọng trong kiến trúc ECS, phân phối traffic đến các ECS tasks và cung cấp high availability cho ứng dụng.
 
-![ALB Architecture Overview](images/5-load-balancing/alb-architecture-overview.png)
+![ALB Architecture Overview](/images/5-load-balancing/alb-architecture-overview.png)
 
 ### Những gì chúng ta sẽ tạo:
 

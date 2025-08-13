@@ -10,7 +10,7 @@ pre : " <b> 1. </b> "
 
 ## 🏗️ Kiến trúc tổng quan
 
-![AWS Architecture Overview](images/aws-architecture.png)
+![AWS Architecture Overview](/images/aws-architecture.png)
 
 *Đây là kiến trúc tổng quan của hệ thống ECS Advanced Networking mà chúng ta sẽ xây dựng.*
 
@@ -29,7 +29,7 @@ Trong workshop này, chúng ta sẽ học cách xây dựng một hệ thống E
 
 ## Kiến trúc tổng quan
 
-{{< workshop-image src="images/architecture-overview.png" alt="Workshop Architecture" caption="Kiến trúc tổng quan của hệ thống ECS chúng ta sẽ xây dựng" >}}
+{{< workshop-image src="/images/architecture-overview.png" alt="Workshop Architecture" caption="Kiến trúc tổng quan của hệ thống ECS chúng ta sẽ xây dựng" >}}
 
 ### Các thành phần chính:
 
