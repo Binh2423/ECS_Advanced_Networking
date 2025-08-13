@@ -10,7 +10,7 @@ pre : " <b> 4. </b> "
 
 ## Tổng quan
 
-{{< workshop-image src="{{ "images/ecs-architecture.png" | absURL }}" alt="ECS Architecture" caption="ECS Cluster với Fargate tasks và Service Discovery" >}}
+{{< workshop-image src="images/ecs-architecture.png" alt="ECS Architecture" caption="ECS Cluster với Fargate tasks và Service Discovery" >}}
 
 ### Chúng ta sẽ tạo:
 
@@ -23,7 +23,7 @@ pre : " <b> 4. </b> "
 
 ### 1.1 Truy cập ECS Console
 
-{{< console-screenshot src="{{ "images/ecs-console.png" | absURL }}" alt="ECS Console" caption="Truy cập ECS Console để tạo cluster mới" service="ECS Console" >}}
+{{< console-screenshot src="images/ecs-console.png" alt="ECS Console" caption="Truy cập ECS Console để tạo cluster mới" service="ECS Console" >}}
 
 **Các bước:**
 1. Mở AWS Console
@@ -32,7 +32,7 @@ pre : " <b> 4. </b> "
 
 ### 1.2 Tạo Cluster mới
 
-{{< console-screenshot src="{{ "images/create-cluster.png" | absURL }}" alt="Create ECS Cluster" caption="Tạo ECS Cluster với Fargate launch type" service="ECS Console" >}}
+{{< console-screenshot src="images/create-cluster.png" alt="Create ECS Cluster" caption="Tạo ECS Cluster với Fargate launch type" service="ECS Console" >}}
 
 ```bash
 # Load environment
@@ -50,7 +50,7 @@ echo "export CLUSTER_NAME=$CLUSTER_NAME" >> workshop-env.sh
 
 ### 2.1 Service Discovery Namespace
 
-{{< console-screenshot src="{{ "images/cloud-map.png" | absURL }}" alt="Cloud Map Namespace" caption="AWS Cloud Map cung cấp service discovery cho ECS" service="Cloud Map Console" >}}
+{{< console-screenshot src="images/cloud-map.png" alt="Cloud Map Namespace" caption="AWS Cloud Map cung cấp service discovery cho ECS" service="Cloud Map Console" >}}
 
 ```bash
 # Tạo private DNS namespace
@@ -106,7 +106,7 @@ echo "✅ ECS Task Execution Role created"
 
 ### 4.1 Frontend Task Definition
 
-{{< console-screenshot src="{{ "images/task-definition.png" | absURL }}" alt="Task Definition" caption="Task Definition định nghĩa container specifications" service="ECS Console" >}}
+{{< console-screenshot src="images/task-definition.png" alt="Task Definition" caption="Task Definition định nghĩa container specifications" service="ECS Console" >}}
 
 ```bash
 # Tạo frontend task definition
@@ -205,7 +205,7 @@ echo "✅ Backend Task Definition registered"
 
 ### 5.1 Backend Service với Service Discovery
 
-{{< console-screenshot src="{{ "images/ecs-service.png" | absURL }}" alt="ECS Service" caption="ECS Service quản lý và scale containers" service="ECS Console" >}}
+{{< console-screenshot src="images/ecs-service.png" alt="ECS Service" caption="ECS Service quản lý và scale containers" service="ECS Console" >}}
 
 ```bash
 # Lấy namespace ID
@@ -242,7 +242,7 @@ echo "✅ Service status checked"
 
 ### 6.1 Xem Service Discovery Records
 
-{{< console-screenshot src="{{ "images/service-discovery.png" | absURL }}" alt="Service Discovery" caption="Service Discovery records trong Cloud Map" service="Cloud Map Console" >}}
+{{< console-screenshot src="images/service-discovery.png" alt="Service Discovery" caption="Service Discovery records trong Cloud Map" service="Cloud Map Console" >}}
 
 ```bash
 # List service discovery services
@@ -289,7 +289,7 @@ echo "✅ Test task definition created"
 
 ### 6.3 Xem ECS Services trong Console
 
-{{< console-screenshot src="{{ "images/ecs-services-running.png" | absURL }}" alt="ECS Services Running" caption="ECS Services đang chạy với healthy tasks" service="ECS Console" >}}
+{{< console-screenshot src="images/ecs-services-running.png" alt="ECS Services Running" caption="ECS Services đang chạy với healthy tasks" service="ECS Console" >}}
 
 ### 6.4 Tóm tắt ECS Infrastructure
 

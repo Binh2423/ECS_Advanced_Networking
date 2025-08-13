@@ -29,7 +29,7 @@ Trong workshop này, chúng ta sẽ học cách xây dựng một hệ thống E
 
 ## Kiến trúc tổng quan
 
-{{< workshop-image src="{{ "images/architecture-overview.png" | absURL }}" alt="Workshop Architecture" caption="Kiến trúc tổng quan của hệ thống ECS chúng ta sẽ xây dựng" >}}
+{{< workshop-image src="images/architecture-overview.png" alt="Workshop Architecture" caption="Kiến trúc tổng quan của hệ thống ECS chúng ta sẽ xây dựng" >}}
 
 ### Các thành phần chính:
 

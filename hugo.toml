@@ -3,6 +3,8 @@ languageCode = 'vi-vn'
 title = 'ECS_Advanced_Networking_Workshop'
 theme = 'hugo-theme-learn'
 defaultContentLanguage = 'vi'
+relativeURLs = true
+canonifyURLs = true
 
 [outputs]
 home = [ "HTML", "RSS", "JSON"]
