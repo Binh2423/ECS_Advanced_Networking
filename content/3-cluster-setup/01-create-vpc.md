@@ -16,23 +16,19 @@ Trong bước này, chúng ta sẽ tạo VPC chính với CIDR block 10.0.0.0/16
 
 ### Bước 1: Truy cập VPC Console
 
-{{< console-interaction >}}
-**📍 Vị trí:** AWS Management Console → Services → VPC
+![AWS Console Homepage](images/3-cluster-setup/01-vpc/01-aws-console-homepage.png)
 
-**Hành động:**
 1. Đăng nhập vào AWS Console
 2. Tìm kiếm "VPC" trong thanh tìm kiếm
 3. Click vào **VPC** service
 
-**📸 Screenshot cần chụp:**
-- [ ] AWS Console homepage với VPC service được highlight
-- [ ] VPC Dashboard với button "Create VPC"
-{{< /console-interaction >}}
-
 ### Bước 2: Tạo VPC mới
 
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Create VPC
+![VPC Dashboard](images/3-cluster-setup/01-vpc/02-vpc-dashboard.png)
+
+Trong VPC Console, click vào **Create VPC** để bắt đầu.
+
+![Create VPC Form](images/3-cluster-setup/01-vpc/03-create-vpc-form.png)
 
 **Cấu hình:**
 - **Name tag:** `ECS-Workshop-VPC`
@@ -40,10 +36,13 @@ Trong bước này, chúng ta sẽ tạo VPC chính với CIDR block 10.0.0.0/16
 - **IPv6 CIDR block:** No IPv6 CIDR block
 - **Tenancy:** Default
 
-**📸 Screenshot cần chụp:**
-- [ ] Create VPC form với các thông tin đã điền
-- [ ] VPC được tạo thành công trong VPC list
-{{< /console-interaction >}}
+### Bước 3: Xác minh VPC đã tạo
+
+![VPC Created Success](images/3-cluster-setup/01-vpc/04-vpc-created-success.png)
+
+VPC sẽ xuất hiện trong danh sách với trạng thái "Available".
+
+![VPC Details](images/3-cluster-setup/01-vpc/05-vpc-details-page.png)
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
@@ -111,22 +110,6 @@ aws ec2 describe-vpcs --vpc-ids $VPC_ID --query 'Vpcs[0].[VpcId,CidrBlock,State,
 # |  available     |
 # |  ECS-Workshop-VPC |
 ```
-
-### Kiểm tra trong Console
-
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Your VPCs
-
-**Xác minh:**
-- [ ] VPC `ECS-Workshop-VPC` xuất hiện trong danh sách
-- [ ] State: `Available`
-- [ ] CIDR: `10.0.0.0/16`
-- [ ] DNS resolution: `Enabled`
-- [ ] DNS hostnames: `Enabled`
-
-**📸 Screenshot cần chụp:**
-- [ ] VPC details page showing all configurations
-{{< /console-interaction >}}
 
 ## Troubleshooting
 

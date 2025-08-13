@@ -14,79 +14,42 @@ Tạo Application Load Balancer trong public subnets để phân phối traffic 
 
 ## Kiến trúc ALB
 
-{{< mermaid >}}
-graph TB
-    Internet[🌐 Internet]
-    
-    subgraph "VPC: 10.0.0.0/16"
-        subgraph "Public Subnets"
-            subgraph "AZ-1"
-                ALB1[ALB Node 1<br/>10.0.1.x]
-            end
-            subgraph "AZ-2"
-                ALB2[ALB Node 2<br/>10.0.2.x]
-            end
-        end
-        
-        subgraph "Private Subnets"
-            subgraph "AZ-1"
-                ECS1[ECS Tasks<br/>10.0.3.x]
-            end
-            subgraph "AZ-2"
-                ECS2[ECS Tasks<br/>10.0.4.x]
-            end
-        end
-    end
-    
-    Internet --> ALB1
-    Internet --> ALB2
-    ALB1 --> ECS1
-    ALB1 --> ECS2
-    ALB2 --> ECS1
-    ALB2 --> ECS2
-{{< /mermaid >}}
+![ALB Detailed Architecture](images/5-load-balancing/01-alb/alb-detailed-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Load Balancer Console
 
-{{< console-interaction >}}
-**📍 Vị trí:** EC2 Console → Load Balancers
+![EC2 Load Balancers Menu](images/5-load-balancing/01-alb/01-ec2-load-balancers-menu.png)
 
-**Hành động:**
 1. Mở AWS Console
 2. Tìm kiếm "EC2"
 3. Click vào **Load Balancers** ở menu bên trái
 4. Click **Create Load Balancer**
 
-**📸 Screenshot cần chụp:**
-- [ ] EC2 Console với Load Balancers menu
-- [ ] Load Balancers dashboard
-- [ ] Create Load Balancer page với ALB option
-{{< /console-interaction >}}
-
 ### Bước 2: Chọn Application Load Balancer
 
-{{< console-interaction >}}
-**📍 Vị trí:** Create Load Balancer → Choose Load Balancer Type
+![Load Balancers Dashboard](images/5-load-balancing/01-alb/02-load-balancers-dashboard.png)
 
-**Cấu hình:**
+Trong Load Balancers dashboard, click **Create Load Balancer**.
+
+![Choose Load Balancer Type](images/5-load-balancing/01-alb/03-choose-load-balancer-type.png)
+
 - Chọn **Application Load Balancer**
 - Click **Create**
 
-**📸 Screenshot cần chụp:**
-- [ ] Load Balancer type selection với ALB highlighted
-{{< /console-interaction >}}
-
 ### Bước 3: Cấu hình ALB Basic Settings
 
-{{< console-interaction >}}
-**📍 Vị trí:** Create Application Load Balancer → Basic Configuration
+![ALB Basic Configuration](images/5-load-balancing/01-alb/04-alb-basic-configuration.png)
 
 **Cấu hình:**
 - **Name:** `ecs-workshop-alb`
 - **Scheme:** Internet-facing
 - **IP address type:** IPv4
+
+### Bước 4: Network Mapping
+
+![ALB Network Mapping](images/5-load-balancing/01-alb/05-alb-network-mapping.png)
 
 **Network mapping:**
 - **VPC:** Chọn `ECS-Workshop-VPC`
@@ -94,21 +57,33 @@ graph TB
   - Public-Subnet-1 (AZ-1)
   - Public-Subnet-2 (AZ-2)
 
+### Bước 5: Security Groups
+
+![ALB Security Groups](images/5-load-balancing/01-alb/06-alb-security-groups.png)
+
 **Security groups:**
 - Chọn `ecs-workshop-alb-sg`
 - Remove default security group
 
-**📸 Screenshot cần chụp:**
-- [ ] Basic configuration form
-- [ ] Network mapping với 2 public subnets
-- [ ] Security groups selection
-{{< /console-interaction >}}
+### Bước 6: Listeners (tạm thời để trống)
+
+![ALB Listeners Empty](images/5-load-balancing/01-alb/07-alb-listeners-empty.png)
+
+Chúng ta sẽ cấu hình listeners sau khi tạo target groups.
+
+### Bước 7: Xác minh ALB đã tạo
+
+![ALB Created Success](images/5-load-balancing/01-alb/08-alb-created-success.png)
+
+ALB sẽ được tạo với trạng thái "Provisioning", sau đó chuyển thành "Active".
+
+![ALB Details Page](images/5-load-balancing/01-alb/09-alb-details-page.png)
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
 ### Chuẩn bị
 
-{{< code-block language="bash" title="Load Environment và Kiểm tra Prerequisites" >}}
+```bash
 # Load environment variables
 source workshop-env.sh
 
@@ -127,11 +102,11 @@ if [ -z "$VPC_ID" ] || [ -z "$PUBLIC_SUBNET_1" ] || [ -z "$PUBLIC_SUBNET_2" ] ||
 fi
 
 echo "✅ All prerequisites met"
-{{< /code-block >}}
+```
 
 ### Tạo Application Load Balancer
 
-{{< code-block language="bash" title="Tạo Application Load Balancer" description="Tạo ALB trong public subnets với security group đã cấu hình" >}}
+```bash
 echo "⚖️ Creating Application Load Balancer..."
 
 # Tạo ALB
@@ -161,11 +136,11 @@ ALB_DNS=$(aws elbv2 describe-load-balancers \
     --output text)
 
 echo "🌐 ALB DNS Name: $ALB_DNS"
-{{< /code-block >}}
+```
 
 ### Chờ ALB sẵn sàng
 
-{{< code-block language="bash" title="Chờ ALB Active" description="Chờ ALB chuyển sang trạng thái active trước khi tiếp tục" >}}
+```bash
 echo "⏳ Waiting for ALB to become active..."
 echo "   This may take 2-3 minutes..."
 
@@ -184,11 +159,11 @@ else
     echo "❌ ALB is not active. Current state: $ALB_STATE"
     exit 1
 fi
-{{< /code-block >}}
+```
 
 ### Lưu ALB thông tin
 
-{{< code-block language="bash" title="Lưu ALB Information" >}}
+```bash
 # Lưu ALB thông tin vào environment file
 cat >> workshop-env.sh << EOF
 export ALB_ARN=$ALB_ARN
@@ -198,31 +173,13 @@ EOF
 echo "💾 ALB information saved to workshop-env.sh"
 echo "   ALB ARN: $ALB_ARN"
 echo "   ALB DNS: $ALB_DNS"
-{{< /code-block >}}
+```
 
 ## Xác minh kết quả
 
-### Kiểm tra ALB trong Console
-
-{{< console-interaction >}}
-**📍 Vị trí:** EC2 Console → Load Balancers
-
-**Xác minh:**
-- [ ] ALB `ecs-workshop-alb` xuất hiện trong danh sách
-- [ ] State: `Active`
-- [ ] Scheme: `internet-facing`
-- [ ] VPC: `ECS-Workshop-VPC`
-- [ ] Availability Zones: 2 AZs với public subnets
-
-**📸 Screenshot cần chụp:**
-- [ ] Load Balancers list showing new ALB
-- [ ] ALB details page showing configuration
-- [ ] ALB listeners tab (should be empty for now)
-{{< /console-interaction >}}
-
 ### Kiểm tra bằng CLI
 
-{{< code-block language="bash" title="Kiểm tra ALB Configuration" >}}
+```bash
 echo "📋 ALB Summary:"
 echo "==============="
 
@@ -252,13 +209,13 @@ aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN --query 'LoadBal
     sg_name=$(aws ec2 describe-security-groups --group-ids $sg --query 'SecurityGroups[0].GroupName' --output text)
     echo "  ✓ $sg ($sg_name)"
 done
-{{< /code-block >}}
+```
 
 ## Test ALB Connectivity
 
 ### Test DNS Resolution
 
-{{< code-block language="bash" title="Test DNS Resolution" >}}
+```bash
 echo "🧪 Testing ALB DNS resolution..."
 
 # Test DNS resolution
@@ -274,11 +231,11 @@ if nslookup $ALB_DNS > /dev/null 2>&1; then
 else
     echo "❌ DNS resolution failed"
 fi
-{{< /code-block >}}
+```
 
 ### Test HTTP Connectivity (sẽ fail vì chưa có listener)
 
-{{< code-block language="bash" title="Test HTTP Connectivity" >}}
+```bash
 echo "🧪 Testing HTTP connectivity..."
 echo "Note: This will fail because we haven't created listeners yet"
 
@@ -291,45 +248,7 @@ fi
 
 echo ""
 echo "💡 We'll configure listeners in the next step"
-{{< /code-block >}}
-
-## ALB Attributes và Tuning
-
-### Xem ALB Attributes
-
-{{< code-block language="bash" title="ALB Attributes" >}}
-echo "⚙️ ALB Attributes:"
-echo "=================="
-
-aws elbv2 describe-load-balancer-attributes \
-    --load-balancer-arn $ALB_ARN \
-    --query 'Attributes[*].[Key,Value]' \
-    --output table
-{{< /code-block >}}
-
-### Tùy chỉnh ALB Attributes (Optional)
-
-{{< code-block language="bash" title="Customize ALB Attributes (Optional)" description="Tùy chỉnh các attributes của ALB để tối ưu performance" >}}
-echo "⚙️ Customizing ALB attributes..."
-
-# Enable access logs (optional - requires S3 bucket)
-# aws elbv2 modify-load-balancer-attributes \
-#     --load-balancer-arn $ALB_ARN \
-#     --attributes Key=access_logs.s3.enabled,Value=true \
-#                  Key=access_logs.s3.bucket,Value=my-alb-logs-bucket
-
-# Enable deletion protection (recommended for production)
-aws elbv2 modify-load-balancer-attributes \
-    --load-balancer-arn $ALB_ARN \
-    --attributes Key=deletion_protection.enabled,Value=false
-
-# Set idle timeout (default is 60 seconds)
-aws elbv2 modify-load-balancer-attributes \
-    --load-balancer-arn $ALB_ARN \
-    --attributes Key=idle_timeout.timeout_seconds,Value=60
-
-echo "✅ ALB attributes configured"
-{{< /code-block >}}
+```
 
 ## Troubleshooting
 
@@ -352,22 +271,6 @@ echo "✅ ALB attributes configured"
 - Đảm bảo security group đã được tạo
 - Kiểm tra security group thuộc đúng VPC
 {{< /alert >}}
-
-### Debug Commands
-
-{{< code-block language="bash" title="Debug Commands" >}}
-# Kiểm tra tất cả load balancers
-aws elbv2 describe-load-balancers --query 'LoadBalancers[*].[LoadBalancerName,State.Code,Type]' --output table
-
-# Kiểm tra subnets có sẵn
-aws ec2 describe-subnets --subnet-ids $PUBLIC_SUBNET_1 $PUBLIC_SUBNET_2 --query 'Subnets[*].[SubnetId,CidrBlock,AvailabilityZone]' --output table
-
-# Kiểm tra security group
-aws ec2 describe-security-groups --group-ids $ALB_SG --query 'SecurityGroups[0].[GroupId,GroupName,VpcId]' --output table
-
-# Xem ALB events (nếu có lỗi)
-aws elbv2 describe-load-balancers --load-balancer-arns $ALB_ARN --query 'LoadBalancers[0].State'
-{{< /code-block >}}
 
 ## Tóm tắt
 

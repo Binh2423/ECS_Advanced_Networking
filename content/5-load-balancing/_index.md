@@ -12,36 +12,7 @@ pre : " <b> 5. </b> "
 
 Application Load Balancer (ALB) là thành phần quan trọng trong kiến trúc ECS, phân phối traffic đến các ECS tasks và cung cấp high availability cho ứng dụng.
 
-{{< mermaid >}}
-graph TB
-    Internet[🌐 Internet]
-    
-    subgraph "Public Subnets"
-        ALB[Application Load Balancer<br/>Port 80, 443]
-    end
-    
-    subgraph "Private Subnets"
-        subgraph "ECS Cluster"
-            TG1[Target Group 1<br/>Frontend Service]
-            TG2[Target Group 2<br/>Backend Service]
-            
-            subgraph "Tasks"
-                T1[Task 1<br/>Frontend]
-                T2[Task 2<br/>Frontend]
-                T3[Task 3<br/>Backend]
-                T4[Task 4<br/>Backend]
-            end
-        end
-    end
-    
-    Internet --> ALB
-    ALB --> TG1
-    ALB --> TG2
-    TG1 --> T1
-    TG1 --> T2
-    TG2 --> T3
-    TG2 --> T4
-{{< /mermaid >}}
+![ALB Architecture Overview](images/5-load-balancing/alb-architecture-overview.png)
 
 ### Những gì chúng ta sẽ tạo:
 

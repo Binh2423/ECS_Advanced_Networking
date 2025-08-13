@@ -12,39 +12,7 @@ pre : " <b> 3. </b> "
 
 Trong phần này, chúng ta sẽ xây dựng một VPC hoàn chỉnh với tất cả các thành phần networking cần thiết cho ECS cluster.
 
-{{< mermaid >}}
-graph TB
-    subgraph "VPC (10.0.0.0/16)"
-        subgraph "Public Subnets"
-            PUB1[Public Subnet 1<br/>10.0.1.0/24]
-            PUB2[Public Subnet 2<br/>10.0.2.0/24]
-        end
-        
-        subgraph "Private Subnets"
-            PRIV1[Private Subnet 1<br/>10.0.3.0/24]
-            PRIV2[Private Subnet 2<br/>10.0.4.0/24]
-        end
-        
-        IGW[Internet Gateway]
-        NAT1[NAT Gateway 1]
-        NAT2[NAT Gateway 2]
-        ALB[Application Load Balancer]
-        ECS1[ECS Tasks]
-        ECS2[ECS Tasks]
-    end
-    
-    Internet --> IGW
-    IGW --> PUB1
-    IGW --> PUB2
-    PUB1 --> NAT1
-    PUB2 --> NAT2
-    NAT1 --> PRIV1
-    NAT2 --> PRIV2
-    ALB --> PUB1
-    ALB --> PUB2
-    PRIV1 --> ECS1
-    PRIV2 --> ECS2
-{{< /mermaid >}}
+![VPC Architecture](images/3-cluster-setup/vpc-architecture-overview.png)
 
 ### Những gì chúng ta sẽ tạo:
 

@@ -14,70 +14,41 @@ Internet Gateway (IGW) cung cấp kết nối internet cho VPC. Chúng ta sẽ t
 
 ## Kiến trúc
 
-{{< mermaid >}}
-graph TB
-    Internet[🌐 Internet]
-    IGW[Internet Gateway]
-    VPC[VPC: 10.0.0.0/16]
-    
-    subgraph "Public Subnets"
-        PUB1[Public Subnet 1<br/>10.0.1.0/24]
-        PUB2[Public Subnet 2<br/>10.0.2.0/24]
-    end
-    
-    Internet --> IGW
-    IGW --> VPC
-    VPC --> PUB1
-    VPC --> PUB2
-{{< /mermaid >}}
+![Internet Gateway Architecture](images/3-cluster-setup/03-igw/internet-gateway-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Internet Gateways Console
 
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Internet Gateways
+![IGW Dashboard](images/3-cluster-setup/03-igw/01-igw-dashboard.png)
 
-**Hành động:**
 1. Trong VPC Console, click vào **Internet Gateways** ở menu bên trái
 2. Click **Create internet gateway**
 
-**📸 Screenshot cần chụp:**
-- [ ] Internet Gateways dashboard
-- [ ] Create internet gateway button
-{{< /console-interaction >}}
-
 ### Bước 2: Tạo Internet Gateway
 
-{{< console-interaction >}}
-**📍 Vị trí:** Create internet gateway form
+![Create IGW Form](images/3-cluster-setup/03-igw/02-create-igw-form.png)
 
 **Cấu hình:**
 - **Name tag:** `ECS-Workshop-IGW`
 
-**Hành động:**
-1. Nhập name tag
-2. Click **Create internet gateway**
+### Bước 3: Xác minh IGW đã tạo
 
-**📸 Screenshot cần chụp:**
-- [ ] Create internet gateway form
-- [ ] Success message sau khi tạo
-{{< /console-interaction >}}
+![IGW Created](images/3-cluster-setup/03-igw/03-igw-created.png)
 
-### Bước 3: Attach Internet Gateway vào VPC
+Internet Gateway sẽ được tạo với trạng thái "Detached".
 
-{{< console-interaction >}}
-**📍 Vị trí:** Internet Gateway details page
+### Bước 4: Attach Internet Gateway vào VPC
 
-**Hành động:**
-1. Sau khi tạo IGW, click **Actions** → **Attach to VPC**
+![Attach IGW Dialog](images/3-cluster-setup/03-igw/04-attach-igw-dialog.png)
+
+1. Click **Actions** → **Attach to VPC**
 2. Chọn VPC `ECS-Workshop-VPC`
 3. Click **Attach internet gateway**
 
-**📸 Screenshot cần chụp:**
-- [ ] Attach to VPC dialog
-- [ ] IGW state thay đổi từ "Detached" thành "Attached"
-{{< /console-interaction >}}
+![IGW Attached](images/3-cluster-setup/03-igw/05-igw-attached.png)
+
+IGW sẽ chuyển sang trạng thái "Attached".
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
@@ -161,92 +132,6 @@ aws ec2 describe-internet-gateways \
     --output table
 ```
 
-### Kiểm tra trong Console
-
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Internet Gateways
-
-**Xác minh:**
-- [ ] IGW `ECS-Workshop-IGW` xuất hiện trong danh sách
-- [ ] State: `Attached`
-- [ ] VPC ID khớp với VPC của workshop
-
-**📸 Screenshot cần chụp:**
-- [ ] Internet Gateways list showing attached IGW
-- [ ] IGW details page showing VPC attachment
-{{< /console-interaction >}}
-
-## Test kết nối
-
-### Tạo script kiểm tra
-
-```bash
-# Tạo script kiểm tra IGW
-cat > check-igw.sh << 'EOF'
-#!/bin/bash
-source workshop-env.sh
-
-echo "🔍 Checking Internet Gateway configuration..."
-
-# Get IGW info
-igw_info=$(aws ec2 describe-internet-gateways --internet-gateway-ids $IGW_ID)
-
-# Extract information
-igw_name=$(echo $igw_info | jq -r '.InternetGateways[0].Tags[]? | select(.Key=="Name") | .Value')
-attachment_vpc=$(echo $igw_info | jq -r '.InternetGateways[0].Attachments[0].VpcId')
-attachment_state=$(echo $igw_info | jq -r '.InternetGateways[0].Attachments[0].State')
-
-echo "Internet Gateway Details:"
-echo "========================"
-echo "  ✓ Name: $igw_name"
-echo "  ✓ IGW ID: $IGW_ID"
-echo "  ✓ Attached VPC: $attachment_vpc"
-echo "  ✓ State: $attachment_state"
-
-# Verify VPC match
-if [ "$attachment_vpc" = "$VPC_ID" ]; then
-    echo "  ✅ VPC attachment verified!"
-else
-    echo "  ❌ VPC mismatch!"
-    exit 1
-fi
-
-# Check if attached
-if [ "$attachment_state" = "attached" ]; then
-    echo "  ✅ IGW is properly attached!"
-else
-    echo "  ❌ IGW is not attached!"
-    exit 1
-fi
-
-echo ""
-echo "✅ Internet Gateway is ready for use!"
-EOF
-
-chmod +x check-igw.sh
-./check-igw.sh
-```
-
-## Hiểu về Internet Gateway
-
-### Cách hoạt động
-
-{{< alert type="info" title="💡 Cách Internet Gateway hoạt động" >}}
-**Internet Gateway** là một thành phần VPC cho phép giao tiếp giữa VPC và internet:
-
-🔄 **Bidirectional:** Cho phép traffic vào và ra  
-🌐 **Public IP mapping:** Map private IP thành public IP  
-⚡ **Highly available:** Tự động scale và redundant  
-🆓 **No cost:** Không tính phí sử dụng  
-{{< /alert >}}
-
-### Route Tables
-
-Lưu ý rằng chỉ tạo IGW thôi chưa đủ. Chúng ta cần:
-1. ✅ **Internet Gateway** (đã tạo)
-2. ⏳ **Route Tables** (sẽ tạo ở bước tiếp theo)
-3. ⏳ **Routes** pointing to IGW (sẽ tạo ở bước tiếp theo)
-
 ## Troubleshooting
 
 ### Lỗi thường gặp
@@ -267,16 +152,6 @@ Lưu ý rằng chỉ tạo IGW thôi chưa đủ. Chúng ta cần:
 - Đảm bảo VPC đã được tạo thành công
 - Kiểm tra region đang sử dụng
 {{< /alert >}}
-
-### Debug commands
-
-```bash
-# Kiểm tra tất cả IGWs trong region
-aws ec2 describe-internet-gateways --query 'InternetGateways[*].[InternetGatewayId,Attachments[0].VpcId,Attachments[0].State]' --output table
-
-# Kiểm tra VPC có tồn tại không
-aws ec2 describe-vpcs --vpc-ids $VPC_ID --query 'Vpcs[0].VpcId' --output text
-```
 
 ## Tóm tắt
 

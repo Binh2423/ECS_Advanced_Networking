@@ -18,41 +18,13 @@ Mỗi loại subnet sẽ được đặt trong 2 Availability Zones khác nhau �
 
 ## Kiến trúc Subnets
 
-{{< mermaid >}}
-graph TB
-    subgraph "VPC: 10.0.0.0/16"
-        subgraph "AZ-1"
-            PUB1[Public Subnet 1<br/>10.0.1.0/24]
-            PRIV1[Private Subnet 1<br/>10.0.3.0/24]
-        end
-        
-        subgraph "AZ-2"
-            PUB2[Public Subnet 2<br/>10.0.2.0/24]
-            PRIV2[Private Subnet 2<br/>10.0.4.0/24]
-        end
-    end
-{{< /mermaid >}}
+![Subnets Architecture](images/3-cluster-setup/02-subnets/subnets-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
-### Bước 1: Truy cập Subnets Console
+### Bước 1: Tạo Public Subnet 1
 
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Subnets
-
-**Hành động:**
-1. Trong VPC Console, click vào **Subnets** ở menu bên trái
-2. Click **Create subnet**
-
-**📸 Screenshot cần chụp:**
-- [ ] Subnets dashboard
-- [ ] Create subnet button
-{{< /console-interaction >}}
-
-### Bước 2: Tạo Public Subnet 1
-
-{{< console-interaction >}}
-**📍 Vị trí:** Create subnet form
+![Create Subnet Form](images/3-cluster-setup/02-subnets/02-create-subnet-form-public1.png)
 
 **Cấu hình:**
 - **VPC ID:** Chọn `ECS-Workshop-VPC`
@@ -60,11 +32,7 @@ graph TB
 - **Availability Zone:** Chọn AZ đầu tiên (ví dụ: ap-southeast-1a)
 - **IPv4 CIDR block:** `10.0.1.0/24`
 
-**📸 Screenshot cần chụp:**
-- [ ] Create subnet form với thông tin Public Subnet 1
-{{< /console-interaction >}}
-
-### Bước 3: Tạo các subnets còn lại
+### Bước 2: Tạo các subnets còn lại
 
 Lặp lại quá trình tương tự cho:
 
@@ -73,6 +41,20 @@ Lặp lại quá trình tương tự cho:
 | Public-Subnet-2 | AZ thứ 2 | 10.0.2.0/24 | Public |
 | Private-Subnet-1 | AZ đầu tiên | 10.0.3.0/24 | Private |
 | Private-Subnet-2 | AZ thứ 2 | 10.0.4.0/24 | Private |
+
+### Bước 3: Xác minh kết quả
+
+![Subnets List Complete](images/3-cluster-setup/02-subnets/03-subnets-list-complete.png)
+
+Tất cả 4 subnets sẽ xuất hiện trong danh sách với đúng CIDR blocks và AZs.
+
+![Public Subnet Details](images/3-cluster-setup/02-subnets/04-subnet-details-public.png)
+
+Public subnets sẽ có "Auto-assign public IPv4 address" = Yes.
+
+![Private Subnet Details](images/3-cluster-setup/02-subnets/05-subnet-details-private.png)
+
+Private subnets sẽ có "Auto-assign public IPv4 address" = No.
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
@@ -209,67 +191,6 @@ aws ec2 describe-subnets \
         MapPublicIpOnLaunch
     ]' \
     --output table
-```
-
-### Kiểm tra trong Console
-
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Subnets
-
-**Xác minh:**
-- [ ] 4 subnets xuất hiện trong danh sách
-- [ ] Public subnets có "Auto-assign public IPv4 address" = Yes
-- [ ] Private subnets có "Auto-assign public IPv4 address" = No
-- [ ] Mỗi subnet ở AZ khác nhau
-
-**📸 Screenshot cần chụp:**
-- [ ] Subnets list showing all 4 subnets
-- [ ] Subnet details cho mỗi subnet
-{{< /console-interaction >}}
-
-## Kiểm tra kết nối
-
-### Test subnet connectivity
-
-```bash
-# Tạo script kiểm tra subnet
-cat > check-subnets.sh << 'EOF'
-#!/bin/bash
-source workshop-env.sh
-
-echo "🔍 Checking subnet configurations..."
-
-# Function to check subnet
-check_subnet() {
-    local subnet_id=$1
-    local subnet_name=$2
-    
-    echo "Checking $subnet_name ($subnet_id):"
-    
-    # Get subnet info
-    subnet_info=$(aws ec2 describe-subnets --subnet-ids $subnet_id --query 'Subnets[0]')
-    
-    cidr=$(echo $subnet_info | jq -r '.CidrBlock')
-    az=$(echo $subnet_info | jq -r '.AvailabilityZone')
-    auto_ip=$(echo $subnet_info | jq -r '.MapPublicIpOnLaunch')
-    
-    echo "  ✓ CIDR: $cidr"
-    echo "  ✓ AZ: $az"
-    echo "  ✓ Auto-assign IP: $auto_ip"
-    echo ""
-}
-
-# Check all subnets
-check_subnet $PUBLIC_SUBNET_1 "Public-Subnet-1"
-check_subnet $PUBLIC_SUBNET_2 "Public-Subnet-2"
-check_subnet $PRIVATE_SUBNET_1 "Private-Subnet-1"
-check_subnet $PRIVATE_SUBNET_2 "Private-Subnet-2"
-
-echo "✅ All subnets configured correctly!"
-EOF
-
-chmod +x check-subnets.sh
-./check-subnets.sh
 ```
 
 ## Troubleshooting

@@ -14,38 +14,7 @@ NAT Gateways cho phép resources trong private subnets truy cập internet (outb
 
 ## Kiến trúc
 
-{{< mermaid >}}
-graph TB
-    Internet[🌐 Internet]
-    IGW[Internet Gateway]
-    
-    subgraph "VPC: 10.0.0.0/16"
-        subgraph "Public Subnets"
-            PUB1[Public Subnet 1<br/>10.0.1.0/24]
-            PUB2[Public Subnet 2<br/>10.0.2.0/24]
-        end
-        
-        subgraph "Private Subnets"
-            PRIV1[Private Subnet 1<br/>10.0.3.0/24]
-            PRIV2[Private Subnet 2<br/>10.0.4.0/24]
-        end
-        
-        NAT1[NAT Gateway 1]
-        NAT2[NAT Gateway 2]
-        ECS1[ECS Tasks]
-        ECS2[ECS Tasks]
-    end
-    
-    Internet --> IGW
-    IGW --> PUB1
-    IGW --> PUB2
-    PUB1 --> NAT1
-    PUB2 --> NAT2
-    NAT1 --> PRIV1
-    NAT2 --> PRIV2
-    PRIV1 --> ECS1
-    PRIV2 --> ECS2
-{{< /mermaid >}}
+![NAT Gateways Architecture](images/3-cluster-setup/04-nat/nat-gateways-architecture.png)
 
 ## Tại sao cần 2 NAT Gateways?
 
@@ -61,22 +30,14 @@ graph TB
 
 ### Bước 1: Truy cập NAT Gateways Console
 
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → NAT Gateways
+![NAT Gateways Dashboard](images/3-cluster-setup/04-nat/01-nat-gateways-dashboard.png)
 
-**Hành động:**
 1. Trong VPC Console, click vào **NAT Gateways** ở menu bên trái
 2. Click **Create NAT gateway**
 
-**📸 Screenshot cần chụp:**
-- [ ] NAT Gateways dashboard
-- [ ] Create NAT gateway button
-{{< /console-interaction >}}
-
 ### Bước 2: Tạo NAT Gateway 1
 
-{{< console-interaction >}}
-**📍 Vị trí:** Create NAT gateway form
+![Create NAT Gateway Form](images/3-cluster-setup/04-nat/02-create-nat-gateway-form.png)
 
 **Cấu hình:**
 - **Name:** `ECS-Workshop-NAT-1`
@@ -84,16 +45,21 @@ graph TB
 - **Connectivity type:** Public
 - **Elastic IP allocation ID:** Click "Allocate Elastic IP"
 
-**📸 Screenshot cần chụp:**
-- [ ] Create NAT gateway form với thông tin đã điền
-- [ ] Elastic IP allocation dialog
-{{< /console-interaction >}}
+![Allocate EIP Dialog](images/3-cluster-setup/04-nat/03-allocate-eip-dialog.png)
 
 ### Bước 3: Tạo NAT Gateway 2
 
 Lặp lại quá trình tương tự với:
 - **Name:** `ECS-Workshop-NAT-2`
 - **Subnet:** Chọn `Public-Subnet-2`
+
+### Bước 4: Xác minh kết quả
+
+![NAT Gateways List](images/3-cluster-setup/04-nat/04-nat-gateways-list.png)
+
+Cả 2 NAT Gateways sẽ xuất hiện với trạng thái "Available".
+
+![NAT Gateway Details](images/3-cluster-setup/04-nat/05-nat-gateway-details.png)
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
@@ -227,22 +193,6 @@ aws ec2 describe-nat-gateways \
     --output table
 ```
 
-### Kiểm tra trong Console
-
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → NAT Gateways
-
-**Xác minh:**
-- [ ] 2 NAT Gateways xuất hiện trong danh sách
-- [ ] State: `Available`
-- [ ] Mỗi NAT Gateway ở public subnet khác nhau
-- [ ] Mỗi NAT Gateway có Elastic IP riêng
-
-**📸 Screenshot cần chụp:**
-- [ ] NAT Gateways list showing both gateways
-- [ ] NAT Gateway details showing subnet and EIP
-{{< /console-interaction >}}
-
 ## Kiểm tra chi phí
 
 ### Ước tính chi phí NAT Gateway
@@ -280,55 +230,6 @@ chmod +x calculate-nat-cost.sh
 ./calculate-nat-cost.sh
 ```
 
-## Test kết nối
-
-### Tạo script kiểm tra
-
-```bash
-# Tạo script kiểm tra NAT Gateways
-cat > check-nat-gateways.sh << 'EOF'
-#!/bin/bash
-source workshop-env.sh
-
-echo "🔍 Checking NAT Gateway configuration..."
-
-# Function to check NAT Gateway
-check_nat_gateway() {
-    local nat_id=$1
-    local nat_name=$2
-    
-    echo "Checking $nat_name ($nat_id):"
-    
-    # Get NAT Gateway info
-    nat_info=$(aws ec2 describe-nat-gateways --nat-gateway-ids $nat_id --query 'NatGateways[0]')
-    
-    state=$(echo $nat_info | jq -r '.State')
-    subnet_id=$(echo $nat_info | jq -r '.SubnetId')
-    public_ip=$(echo $nat_info | jq -r '.NatGatewayAddresses[0].PublicIp')
-    
-    echo "  ✓ State: $state"
-    echo "  ✓ Subnet: $subnet_id"
-    echo "  ✓ Public IP: $public_ip"
-    
-    if [ "$state" = "available" ]; then
-        echo "  ✅ NAT Gateway is ready!"
-    else
-        echo "  ❌ NAT Gateway is not ready (State: $state)"
-    fi
-    echo ""
-}
-
-# Check both NAT Gateways
-check_nat_gateway $NAT_GW_1 "NAT-Gateway-1"
-check_nat_gateway $NAT_GW_2 "NAT-Gateway-2"
-
-echo "✅ NAT Gateway check completed!"
-EOF
-
-chmod +x check-nat-gateways.sh
-./check-nat-gateways.sh
-```
-
 ## Troubleshooting
 
 ### Lỗi thường gặp
@@ -350,19 +251,6 @@ chmod +x check-nat-gateways.sh
 - Đảm bảo public subnets đã được tạo
 - Kiểm tra region đang sử dụng
 {{< /alert >}}
-
-### Debug commands
-
-```bash
-# Kiểm tra tất cả NAT Gateways
-aws ec2 describe-nat-gateways --query 'NatGateways[*].[NatGatewayId,State,SubnetId]' --output table
-
-# Kiểm tra Elastic IPs
-aws ec2 describe-addresses --allocation-ids $EIP_1_ALLOC $EIP_2_ALLOC --query 'Addresses[*].[AllocationId,PublicIp,AssociationId]' --output table
-
-# Kiểm tra subnet tồn tại
-aws ec2 describe-subnets --subnet-ids $PUBLIC_SUBNET_1 $PUBLIC_SUBNET_2 --query 'Subnets[*].[SubnetId,CidrBlock,AvailabilityZone]' --output table
-```
 
 ## Tóm tắt
 

@@ -16,53 +16,28 @@ Route Tables định tuyến traffic trong VPC. Chúng ta sẽ tạo:
 
 ## Kiến trúc Routing
 
-{{< mermaid >}}
-graph TB
-    subgraph "VPC: 10.0.0.0/16"
-        subgraph "Public Route Table"
-            PRT[Public RT<br/>0.0.0.0/0 → IGW]
-        end
-        
-        subgraph "Private Route Tables"
-            PRT1[Private RT 1<br/>0.0.0.0/0 → NAT GW 1]
-            PRT2[Private RT 2<br/>0.0.0.0/0 → NAT GW 2]
-        end
-        
-        PUB1[Public Subnet 1] --> PRT
-        PUB2[Public Subnet 2] --> PRT
-        PRIV1[Private Subnet 1] --> PRT1
-        PRIV2[Private Subnet 2] --> PRT2
-    end
-    
-    PRT --> IGW[Internet Gateway]
-    PRT1 --> NAT1[NAT Gateway 1]
-    PRT2 --> NAT2[NAT Gateway 2]
-{{< /mermaid >}}
+![Route Tables Architecture](images/3-cluster-setup/05-routes/route-tables-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Route Tables Console
 
-{{< console-interaction >}}
-**📍 Vị trí:** VPC Console → Route Tables
+![Route Tables Dashboard](images/3-cluster-setup/05-routes/01-route-tables-dashboard.png)
 
-**Hành động:**
 1. Trong VPC Console, click vào **Route Tables** ở menu bên trái
 2. Click **Create route table**
 
-**📸 Screenshot cần chụp:**
-- [ ] Route Tables dashboard
-- [ ] Create route table button
-{{< /console-interaction >}}
-
 ### Bước 2: Tạo Public Route Table
 
-{{< console-interaction >}}
-**📍 Vị trí:** Create route table form
+![Create Route Table Form](images/3-cluster-setup/05-routes/02-create-route-table-form.png)
 
 **Cấu hình:**
 - **Name:** `Public-Route-Table`
 - **VPC:** Chọn `ECS-Workshop-VPC`
+
+### Bước 3: Cấu hình Routes
+
+![Edit Routes Dialog](images/3-cluster-setup/05-routes/03-edit-routes-dialog.png)
 
 **Hành động sau khi tạo:**
 1. Select route table vừa tạo
@@ -71,17 +46,17 @@ graph TB
 4. Tab **Subnet associations** → **Edit subnet associations**
 5. Chọn cả 2 public subnets
 
-**📸 Screenshot cần chụp:**
-- [ ] Create route table form
-- [ ] Routes configuration với IGW
-- [ ] Subnet associations với public subnets
-{{< /console-interaction >}}
+### Bước 4: Xác minh kết quả
+
+![Route Tables Complete](images/3-cluster-setup/05-routes/05-route-tables-complete.png)
+
+Tất cả route tables sẽ được cấu hình với đúng routes và subnet associations.
 
 ## Phương pháp 2: Sử dụng AWS CLI
 
 ### Tạo Public Route Table
 
-{{< code-block language="bash" title="Tạo Public Route Table" description="Route table cho public subnets với route tới Internet Gateway" >}}
+```bash
 # Load environment variables
 source workshop-env.sh
 
@@ -113,11 +88,11 @@ aws ec2 associate-route-table --subnet-id $PUBLIC_SUBNET_1 --route-table-id $PUB
 aws ec2 associate-route-table --subnet-id $PUBLIC_SUBNET_2 --route-table-id $PUBLIC_RT
 
 echo "✅ Public subnets associated with Public Route Table"
-{{< /code-block >}}
+```
 
 ### Tạo Private Route Tables
 
-{{< code-block language="bash" title="Tạo Private Route Tables" description="Route tables cho private subnets với routes tới NAT Gateways" >}}
+```bash
 echo "🛣️ Creating Private Route Tables..."
 
 # Private Route Table 1 (cho Private Subnet 1)
@@ -165,11 +140,11 @@ aws ec2 create-route \
 aws ec2 associate-route-table --subnet-id $PRIVATE_SUBNET_2 --route-table-id $PRIVATE_RT_2
 
 echo "✅ Private Route Table 2 created and configured: $PRIVATE_RT_2"
-{{< /code-block >}}
+```
 
 ### Lưu Route Table IDs
 
-{{< code-block language="bash" title="Lưu Route Table IDs" >}}
+```bash
 # Lưu Route Table IDs vào environment file
 cat >> workshop-env.sh << EOF
 export PUBLIC_RT=$PUBLIC_RT
@@ -178,13 +153,13 @@ export PRIVATE_RT_2=$PRIVATE_RT_2
 EOF
 
 echo "💾 Route Table IDs saved to workshop-env.sh"
-{{< /code-block >}}
+```
 
 ## Xác minh kết quả
 
 ### Kiểm tra Route Tables
 
-{{< code-block language="bash" title="Kiểm tra Route Tables" >}}
+```bash
 echo "📋 Route Table Summary:"
 echo "======================"
 
@@ -206,11 +181,11 @@ show_route_table() {
 show_route_table $PUBLIC_RT
 show_route_table $PRIVATE_RT_1
 show_route_table $PRIVATE_RT_2
-{{< /code-block >}}
+```
 
 ### Kiểm tra Subnet Associations
 
-{{< code-block language="bash" title="Kiểm tra Subnet Associations" >}}
+```bash
 echo "🔗 Subnet Associations:"
 echo "======================="
 
@@ -232,74 +207,7 @@ check_associations() {
 check_associations $PUBLIC_RT
 check_associations $PRIVATE_RT_1
 check_associations $PRIVATE_RT_2
-{{< /code-block >}}
-
-## Test Routing
-
-### Tạo script test routing
-
-{{< code-block language="bash" title="Test Routing Script" file="test-routing.sh" >}}
-cat > test-routing.sh << 'EOF'
-#!/bin/bash
-source workshop-env.sh
-
-echo "🧪 Testing Route Table Configuration..."
-echo "======================================"
-
-# Function to test route table
-test_route_table() {
-    local rt_id=$1
-    local rt_name=$2
-    local expected_target=$3
-    
-    echo "Testing $rt_name ($rt_id):"
-    
-    # Get route information
-    route_info=$(aws ec2 describe-route-tables --route-table-ids $rt_id --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`]' --output json)
-    
-    if [ "$route_info" = "[]" ]; then
-        echo "  ❌ No default route found"
-        return 1
-    fi
-    
-    # Check target
-    if echo "$route_info" | grep -q "$expected_target"; then
-        echo "  ✅ Default route correctly points to $expected_target"
-    else
-        echo "  ❌ Default route does not point to expected target"
-        echo "  Route info: $route_info"
-        return 1
-    fi
-    
-    # Check associations
-    associations=$(aws ec2 describe-route-tables --route-table-ids $rt_id --query 'RouteTables[0].Associations[?SubnetId!=null].SubnetId' --output text)
-    if [ -n "$associations" ]; then
-        echo "  ✅ Subnets associated: $(echo $associations | wc -w) subnet(s)"
-    else
-        echo "  ❌ No subnets associated"
-        return 1
-    fi
-    
-    echo ""
-    return 0
-}
-
-# Test all route tables
-echo "1. Testing Public Route Table..."
-test_route_table $PUBLIC_RT "Public-Route-Table" "igw-"
-
-echo "2. Testing Private Route Table 1..."
-test_route_table $PRIVATE_RT_1 "Private-Route-Table-1" "nat-"
-
-echo "3. Testing Private Route Table 2..."
-test_route_table $PRIVATE_RT_2 "Private-Route-Table-2" "nat-"
-
-echo "✅ Route table testing completed!"
-EOF
-
-chmod +x test-routing.sh
-./test-routing.sh
-{{< /code-block >}}
+```
 
 ## Troubleshooting
 
@@ -322,22 +230,6 @@ chmod +x test-routing.sh
 - Kiểm tra current association: `aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID"`
 - Disassociate trước khi associate mới
 {{< /alert >}}
-
-### Debug Commands
-
-{{< code-block language="bash" title="Debug Commands" >}}
-# Xem tất cả route tables trong VPC
-aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --query 'RouteTables[*].[RouteTableId,Tags[?Key==`Name`].Value|[0]]' --output table
-
-# Xem routes của một route table
-aws ec2 describe-route-tables --route-table-ids $PUBLIC_RT --query 'RouteTables[0].Routes' --output table
-
-# Xem subnet associations
-aws ec2 describe-route-tables --route-table-ids $PUBLIC_RT --query 'RouteTables[0].Associations' --output table
-
-# Kiểm tra NAT Gateway status
-aws ec2 describe-nat-gateways --nat-gateway-ids $NAT_GW_1 $NAT_GW_2 --query 'NatGateways[*].[NatGatewayId,State]' --output table
-{{< /code-block >}}
 
 ## Hiểu về Route Tables
 
