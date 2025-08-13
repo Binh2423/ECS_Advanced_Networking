@@ -16,20 +16,20 @@ Route Tables định tuyến traffic trong VPC. Chúng ta sẽ tạo:
 
 ## Kiến trúc Routing
 
-![Route Tables Architecture](/images/3-cluster-setup/05-routes/route-tables-architecture.png)
+![Route Tables Architecture](images/3-cluster-setup/05-routes/route-tables-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Route Tables Console
 
-![Route Tables Dashboard](/images/3-cluster-setup/05-routes/01-route-tables-dashboard.png)
+![Route Tables Dashboard](images/3-cluster-setup/05-routes/01-route-tables-dashboard.png)
 
 1. Trong VPC Console, click vào **Route Tables** ở menu bên trái
 2. Click **Create route table**
 
 ### Bước 2: Tạo Public Route Table
 
-![Create Route Table Form](/images/3-cluster-setup/05-routes/02-create-route-table-form.png)
+![Create Route Table Form](images/3-cluster-setup/05-routes/02-create-route-table-form.png)
 
 **Cấu hình:**
 - **Name:** `Public-Route-Table`
@@ -37,7 +37,7 @@ Route Tables định tuyến traffic trong VPC. Chúng ta sẽ tạo:
 
 ### Bước 3: Cấu hình Routes
 
-![Edit Routes Dialog](/images/3-cluster-setup/05-routes/03-edit-routes-dialog.png)
+![Edit Routes Dialog](images/3-cluster-setup/05-routes/03-edit-routes-dialog.png)
 
 **Hành động sau khi tạo:**
 1. Select route table vừa tạo
@@ -48,7 +48,7 @@ Route Tables định tuyến traffic trong VPC. Chúng ta sẽ tạo:
 
 ### Bước 4: Xác minh kết quả
 
-![Route Tables Complete](/images/3-cluster-setup/05-routes/05-route-tables-complete.png)
+![Route Tables Complete](images/3-cluster-setup/05-routes/05-route-tables-complete.png)
 
 Tất cả route tables sẽ được cấu hình với đúng routes và subnet associations.
 

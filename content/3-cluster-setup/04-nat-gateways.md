@@ -14,7 +14,7 @@ NAT Gateways cho phép resources trong private subnets truy cập internet (outb
 
 ## Kiến trúc
 
-![NAT Gateways Architecture](/images/3-cluster-setup/04-nat/nat-gateways-architecture.png)
+![NAT Gateways Architecture](images/3-cluster-setup/04-nat/nat-gateways-architecture.png)
 
 ## Tại sao cần 2 NAT Gateways?
 
@@ -30,14 +30,14 @@ NAT Gateways cho phép resources trong private subnets truy cập internet (outb
 
 ### Bước 1: Truy cập NAT Gateways Console
 
-![NAT Gateways Dashboard](/images/3-cluster-setup/04-nat/01-nat-gateways-dashboard.png)
+![NAT Gateways Dashboard](images/3-cluster-setup/04-nat/01-nat-gateways-dashboard.png)
 
 1. Trong VPC Console, click vào **NAT Gateways** ở menu bên trái
 2. Click **Create NAT gateway**
 
 ### Bước 2: Tạo NAT Gateway 1
 
-![Create NAT Gateway Form](/images/3-cluster-setup/04-nat/02-create-nat-gateway-form.png)
+![Create NAT Gateway Form](images/3-cluster-setup/04-nat/02-create-nat-gateway-form.png)
 
 **Cấu hình:**
 - **Name:** `ECS-Workshop-NAT-1`
@@ -45,7 +45,7 @@ NAT Gateways cho phép resources trong private subnets truy cập internet (outb
 - **Connectivity type:** Public
 - **Elastic IP allocation ID:** Click "Allocate Elastic IP"
 
-![Allocate EIP Dialog](/images/3-cluster-setup/04-nat/03-allocate-eip-dialog.png)
+![Allocate EIP Dialog](images/3-cluster-setup/04-nat/03-allocate-eip-dialog.png)
 
 ### Bước 3: Tạo NAT Gateway 2
 
@@ -55,11 +55,11 @@ Lặp lại quá trình tương tự với:
 
 ### Bước 4: Xác minh kết quả
 
-![NAT Gateways List](/images/3-cluster-setup/04-nat/04-nat-gateways-list.png)
+![NAT Gateways List](images/3-cluster-setup/04-nat/04-nat-gateways-list.png)
 
 Cả 2 NAT Gateways sẽ xuất hiện với trạng thái "Available".
 
-![NAT Gateway Details](/images/3-cluster-setup/04-nat/05-nat-gateway-details.png)
+![NAT Gateway Details](images/3-cluster-setup/04-nat/05-nat-gateway-details.png)
 
 ## Phương pháp 2: Sử dụng AWS CLI
 

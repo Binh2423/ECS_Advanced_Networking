@@ -14,39 +14,39 @@ Internet Gateway (IGW) cung cấp kết nối internet cho VPC. Chúng ta sẽ t
 
 ## Kiến trúc
 
-![Internet Gateway Architecture](/images/3-cluster-setup/03-igw/internet-gateway-architecture.png)
+![Internet Gateway Architecture](images/3-cluster-setup/03-igw/internet-gateway-architecture.png)
 
 ## Phương pháp 1: Sử dụng AWS Console
 
 ### Bước 1: Truy cập Internet Gateways Console
 
-![IGW Dashboard](/images/3-cluster-setup/03-igw/01-igw-dashboard.png)
+![IGW Dashboard](images/3-cluster-setup/03-igw/01-igw-dashboard.png)
 
 1. Trong VPC Console, click vào **Internet Gateways** ở menu bên trái
 2. Click **Create internet gateway**
 
 ### Bước 2: Tạo Internet Gateway
 
-![Create IGW Form](/images/3-cluster-setup/03-igw/02-create-igw-form.png)
+![Create IGW Form](images/3-cluster-setup/03-igw/02-create-igw-form.png)
 
 **Cấu hình:**
 - **Name tag:** `ECS-Workshop-IGW`
 
 ### Bước 3: Xác minh IGW đã tạo
 
-![IGW Created](/images/3-cluster-setup/03-igw/03-igw-created.png)
+![IGW Created](images/3-cluster-setup/03-igw/03-igw-created.png)
 
 Internet Gateway sẽ được tạo với trạng thái "Detached".
 
 ### Bước 4: Attach Internet Gateway vào VPC
 
-![Attach IGW Dialog](/images/3-cluster-setup/03-igw/04-attach-igw-dialog.png)
+![Attach IGW Dialog](images/3-cluster-setup/03-igw/04-attach-igw-dialog.png)
 
 1. Click **Actions** → **Attach to VPC**
 2. Chọn VPC `ECS-Workshop-VPC`
 3. Click **Attach internet gateway**
 
-![IGW Attached](/images/3-cluster-setup/03-igw/05-igw-attached.png)
+![IGW Attached](images/3-cluster-setup/03-igw/05-igw-attached.png)
 
 IGW sẽ chuyển sang trạng thái "Attached".
 
