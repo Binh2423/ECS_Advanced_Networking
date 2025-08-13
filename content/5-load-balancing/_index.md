@@ -1,6 +1,6 @@
 ---
 title : "Load Balancing và ALB"
-date : "`r Sys.Date()`"
+date : "2024-08-13"
 weight : 5
 chapter : true
 pre : " <b> 5. </b> "

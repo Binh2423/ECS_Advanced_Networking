@@ -1,6 +1,6 @@
 ---
 title : "Thiết lập VPC và Networking"
-date : "`r Sys.Date()`"
+date : "2024-08-13"
 weight : 3
 chapter : true
 pre : " <b> 3. </b> "

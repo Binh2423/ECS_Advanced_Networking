@@ -1,6 +1,6 @@
 ---
 title : "Security Groups"
-date : "`r Sys.Date()`"
+date : "2024-08-13"
 weight : 6
 chapter : false
 pre : " <b> 3.6 </b> "

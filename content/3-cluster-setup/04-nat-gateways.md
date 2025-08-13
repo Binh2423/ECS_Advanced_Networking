@@ -1,6 +1,6 @@
 ---
 title : "NAT Gateways"
-date : "`r Sys.Date()`"
+date : "2024-08-13"
 weight : 4
 chapter : false
 pre : " <b> 3.4 </b> "

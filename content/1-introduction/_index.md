@@ -1,6 +1,6 @@
 ---
 title : "Giới thiệu Workshop"
-date : "`r Sys.Date()`"
+date : "2024-08-13"
 weight : 1
 chapter : false
 pre : " <b> 1. </b> "
