@@ -10,7 +10,7 @@ pre : " <b> 6. </b> "
 
 ## Tổng quan
 
-{{< workshop-image src="images/security-monitoring.png" alt="Security and Monitoring" caption="Security và monitoring cho ECS infrastructure" >}}
+{{< workshop-image src="/ECS_Advanced_Networking/images/security-monitoring.png" alt="Security and Monitoring" caption="Security và monitoring cho ECS infrastructure" >}}
 
 ### Chúng ta sẽ cấu hình:
 
@@ -24,7 +24,7 @@ pre : " <b> 6. </b> "
 
 ### 1.1 Tạo Task Role
 
-{{< console-screenshot src="images/iam-roles.png" alt="IAM Roles" caption="IAM Roles cung cấp permissions cho ECS tasks" service="IAM Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/iam-roles.png" alt="IAM Roles" caption="IAM Roles cung cấp permissions cho ECS tasks" service="IAM Console" >}}
 
 ```bash
 # Load environment
@@ -92,7 +92,7 @@ echo "✅ Custom IAM policy attached"
 
 ### 2.1 Tạo Log Groups
 
-{{< console-screenshot src="images/cloudwatch-logs.png" alt="CloudWatch Logs" caption="CloudWatch Logs thu thập và lưu trữ container logs" service="CloudWatch Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/cloudwatch-logs.png" alt="CloudWatch Logs" caption="CloudWatch Logs thu thập và lưu trữ container logs" service="CloudWatch Console" >}}
 
 ```bash
 # Tạo log groups cho các services
@@ -131,7 +131,7 @@ echo "✅ Log streams checked"
 
 ### 3.1 Tạo Flow Logs Role
 
-{{< console-screenshot src="images/vpc-flow-logs.png" alt="VPC Flow Logs" caption="VPC Flow Logs monitor network traffic" service="VPC Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/vpc-flow-logs.png" alt="VPC Flow Logs" caption="VPC Flow Logs monitor network traffic" service="VPC Console" >}}
 
 ```bash
 # Tạo role cho VPC Flow Logs
@@ -186,7 +186,7 @@ echo "export FLOW_LOG_ID=$FLOW_LOG_ID" >> workshop-env.sh
 
 ### 4.1 Tạo Custom Metrics
 
-{{< console-screenshot src="images/cloudwatch-metrics.png" alt="CloudWatch Metrics" caption="CloudWatch Metrics hiển thị performance data" service="CloudWatch Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/cloudwatch-metrics.png" alt="CloudWatch Metrics" caption="CloudWatch Metrics hiển thị performance data" service="CloudWatch Console" >}}
 
 ```bash
 # Tạo custom metric cho ALB
@@ -233,7 +233,7 @@ echo "✅ CloudWatch Alarms created"
 
 ### 5.1 Review Security Group Rules
 
-{{< console-screenshot src="images/security-groups-audit.png" alt="Security Groups Audit" caption="Audit Security Group rules để đảm bảo security" service="EC2 Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/security-groups-audit.png" alt="Security Groups Audit" caption="Audit Security Group rules để đảm bảo security" service="EC2 Console" >}}
 
 ```bash
 echo "🔍 Security Groups Audit:"
@@ -270,7 +270,7 @@ echo "✅ Network ACLs checked"
 
 ### 6.1 Tạo CloudWatch Dashboard
 
-{{< console-screenshot src="images/cloudwatch-dashboard.png" alt="CloudWatch Dashboard" caption="CloudWatch Dashboard tổng hợp metrics" service="CloudWatch Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/cloudwatch-dashboard.png" alt="CloudWatch Dashboard" caption="CloudWatch Dashboard tổng hợp metrics" service="CloudWatch Console" >}}
 
 ```bash
 # Tạo dashboard configuration
@@ -346,7 +346,7 @@ echo "✅ Use read-only root filesystem when possible"
 
 ### 7.3 Security và Monitoring Summary
 
-{{< console-screenshot src="images/monitoring-complete.png" alt="Monitoring Complete" caption="Monitoring và security infrastructure hoàn chỉnh" service="CloudWatch Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/monitoring-complete.png" alt="Monitoring Complete" caption="Monitoring và security infrastructure hoàn chỉnh" service="CloudWatch Console" >}}
 
 ```bash
 echo "📋 Security & Monitoring Summary:"

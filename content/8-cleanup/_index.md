@@ -19,7 +19,7 @@ pre : " <b> 8. </b> "
 
 ## Thứ tự cleanup
 
-{{< workshop-image src="images/cleanup-order.png" alt="Cleanup Order" caption="Thứ tự cleanup resources để tránh dependency errors" >}}
+{{< workshop-image src="/ECS_Advanced_Networking/images/cleanup-order.png" alt="Cleanup Order" caption="Thứ tự cleanup resources để tránh dependency errors" >}}
 
 ### Cleanup theo thứ tự:
 1. **ECS Services và Tasks**
@@ -34,7 +34,7 @@ pre : " <b> 8. </b> "
 
 ### 1.1 Stop ECS Services
 
-{{< console-screenshot src="images/stop-ecs-services.png" alt="Stop ECS Services" caption="Stop và delete ECS services trước khi cleanup cluster" service="ECS Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/stop-ecs-services.png" alt="Stop ECS Services" caption="Stop và delete ECS services trước khi cleanup cluster" service="ECS Console" >}}
 
 ```bash
 # Load environment
@@ -86,7 +86,7 @@ echo "✅ ECS Cluster deleted"
 
 ### 2.1 Delete Load Balancer
 
-{{< console-screenshot src="images/delete-alb.png" alt="Delete ALB" caption="Delete Application Load Balancer và associated resources" service="EC2 Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/delete-alb.png" alt="Delete ALB" caption="Delete Application Load Balancer và associated resources" service="EC2 Console" >}}
 
 ```bash
 echo "🗑️ Deleting Load Balancer..."
@@ -116,7 +116,7 @@ echo "✅ Target Groups deleted"
 
 ### 3.1 Delete NAT Gateways
 
-{{< console-screenshot src="images/delete-nat-gateways.png" alt="Delete NAT Gateways" caption="Delete NAT Gateways và release Elastic IPs" service="VPC Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/delete-nat-gateways.png" alt="Delete NAT Gateways" caption="Delete NAT Gateways và release Elastic IPs" service="VPC Console" >}}
 
 ```bash
 echo "🗑️ Deleting NAT Gateways..."
@@ -209,7 +209,7 @@ echo "✅ VPC deleted"
 
 ### 4.1 Delete IAM Roles
 
-{{< console-screenshot src="images/delete-iam-roles.png" alt="Delete IAM Roles" caption="Delete IAM roles và policies" service="IAM Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/delete-iam-roles.png" alt="Delete IAM Roles" caption="Delete IAM roles và policies" service="IAM Console" >}}
 
 ```bash
 echo "🗑️ Deleting IAM Resources..."
@@ -235,7 +235,7 @@ echo "✅ IAM Resources deleted"
 
 ### 5.1 Delete Log Groups
 
-{{< console-screenshot src="images/delete-cloudwatch.png" alt="Delete CloudWatch" caption="Delete CloudWatch logs, alarms và dashboards" service="CloudWatch Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/delete-cloudwatch.png" alt="Delete CloudWatch" caption="Delete CloudWatch logs, alarms và dashboards" service="CloudWatch Console" >}}
 
 ```bash
 echo "🗑️ Deleting CloudWatch Resources..."
@@ -319,7 +319,7 @@ echo "✅ Service Discovery cleaned up"
 
 ### 7.1 Verify Cleanup
 
-{{< console-screenshot src="images/cleanup-verification.png" alt="Cleanup Verification" caption="Verify tất cả resources đã được cleanup" service="AWS Console" >}}
+{{< console-screenshot src="/ECS_Advanced_Networking/images/cleanup-verification.png" alt="Cleanup Verification" caption="Verify tất cả resources đã được cleanup" service="AWS Console" >}}
 
 ```bash
 echo "🔍 Verifying Cleanup..."

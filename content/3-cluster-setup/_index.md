@@ -12,7 +12,7 @@ pre : " <b> 3. </b> "
 
 Trong phần này, chúng ta sẽ xây dựng một VPC hoàn chỉnh với tất cả các thành phần networking cần thiết cho ECS cluster.
 
-![VPC Architecture](images/3-cluster-setup/vpc-architecture-overview.png)
+![VPC Architecture](/ECS_Advanced_Networking/images/3-cluster-setup/vpc-architecture-overview.png)
 
 ### Những gì chúng ta sẽ tạo:
 
