@@ -8,6 +8,13 @@ pre : " <b> 1. </b> "
 
 # ECS Advanced Networking Workshop
 
+## 🏗️ Kiến trúc tổng quan
+
+![AWS Architecture Overview](/images/aws-architecture.png)
+
+*Đây là kiến trúc tổng quan của hệ thống ECS Advanced Networking mà chúng ta sẽ xây dựng.*
+
+
 ## Chào mừng bạn đến với Workshop!
 
 Trong workshop này, chúng ta sẽ học cách xây dựng một hệ thống ECS hoàn chỉnh với networking nâng cao trên AWS.

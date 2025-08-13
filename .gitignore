@@ -1,6 +1,6 @@
-# Hugo
-/public/
-/resources/_gen/
+# Hugo build artifacts
+public/
+resources/
 .hugo_build.lock
 
 # OS generated files
@@ -12,16 +12,14 @@
 ehthumbs.db
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
+# Editor files
 *.swp
 *.swo
 *~
 
-# Logs
+# Log files
 *.log
 
-# Workshop specific
-workshop-resources.env
-*.json
+# Temporary files
+*.tmp
+*.temp
