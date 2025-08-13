@@ -1,22 +1,140 @@
 {{/* Alert Shortcode */}}
 {{ $type := .Get "type" | default "info" }}
-{{ $icon := .Get "icon" }}
 {{ $title := .Get "title" }}
 
-{{ $iconMap := dict 
-  "info" "fas fa-info-circle"
-  "success" "fas fa-check-circle" 
-  "warning" "fas fa-exclamation-triangle"
-  "danger" "fas fa-times-circle"
-  "tip" "fas fa-lightbulb"
-  "aws" "fab fa-aws"
-}}
-
-{{ $defaultIcon := index $iconMap $type }}
-{{ $finalIcon := $icon | default $defaultIcon }}
-
 <div class="alert alert-{{ $type }}">
-  {{ with $finalIcon }}<i class="{{ . }}"></i> {{ end }}
-  {{ with $title }}<strong>{{ . }}:</strong> {{ end }}
-  {{ .Inner | markdownify }}
+    <div class="alert-header">
+        {{ if eq $type "info" }}
+            <i class="fas fa-info-circle"></i>
+        {{ else if eq $type "warning" }}
+            <i class="fas fa-exclamation-triangle"></i>
+        {{ else if eq $type "success" }}
+            <i class="fas fa-check-circle"></i>
+        {{ else if eq $type "danger" }}
+            <i class="fas fa-times-circle"></i>
+        {{ else if eq $type "tip" }}
+            <i class="fas fa-lightbulb"></i>
+        {{ else }}
+            <i class="fas fa-info-circle"></i>
+        {{ end }}
+        
+        {{ if $title }}
+            <span class="alert-title">{{ $title }}</span>
+        {{ end }}
+    </div>
+    
+    <div class="alert-content">
+        {{ .Inner | markdownify }}
+    </div>
 </div>
+
+<style>
+.alert {
+    margin: 20px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alert-content {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.alert-content p:last-child {
+    margin-bottom: 0;
+}
+
+.alert-content ul, .alert-content ol {
+    margin-bottom: 0;
+}
+
+.alert-content code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Info Alert */
+.alert-info .alert-header {
+    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    color: white;
+}
+
+.alert-info {
+    border-left: 4px solid #3182ce;
+    background: #ebf8ff;
+}
+
+/* Warning Alert */
+.alert-warning .alert-header {
+    background: linear-gradient(135deg, #d69e2e 0%, #b7791f 100%);
+    color: white;
+}
+
+.alert-warning {
+    border-left: 4px solid #d69e2e;
+    background: #fffbeb;
+}
+
+/* Success Alert */
+.alert-success .alert-header {
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+    color: white;
+}
+
+.alert-success {
+    border-left: 4px solid #38a169;
+    background: #f0fff4;
+}
+
+/* Danger Alert */
+.alert-danger .alert-header {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+    color: white;
+}
+
+.alert-danger {
+    border-left: 4px solid #e53e3e;
+    background: #fed7d7;
+}
+
+/* Tip Alert */
+.alert-tip .alert-header {
+    background: linear-gradient(135deg, #805ad5 0%, #6b46c1 100%);
+    color: white;
+}
+
+.alert-tip {
+    border-left: 4px solid #805ad5;
+    background: #faf5ff;
+}
+
+.alert-title {
+    font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .alert-header {
+        padding: 10px 12px;
+    }
+    
+    .alert-content {
+        padding: 12px;
+    }
+    
+    .alert-title {
+        font-size: 14px;
+    }
+}
+</style>

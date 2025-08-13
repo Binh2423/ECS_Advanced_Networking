@@ -1,249 +1,158 @@
 ---
-title: "ECS_Advanced_Networking_Workshop"
-date: "`r Sys.Date()`"
-weight: 1
-chapter: false
+title: "ECS Advanced Networking Workshop"
+date: 2024-01-01
 ---
 
-Chào mừng bạn đến với **ECS Advanced Networking Workshop**! 🚀
+# ECS Advanced Networking Workshop
 
-{{< alert type="aws" title="Về Workshop" >}}
-Workshop này sẽ hướng dẫn bạn triển khai một hệ thống container hoàn chỉnh trên AWS ECS với các tính năng networking nâng cao.
-{{< /alert >}}
+## Chào mừng bạn đến với Workshop! 🚀
 
-## Bạn sẽ học được gì?
+Học cách xây dựng một hệ thống **Amazon ECS** hoàn chỉnh với **networking nâng cao**, **service discovery**, **load balancing** và **monitoring** trên AWS.
 
-- **🌐 VPC Networking:** Thiết kế và triển khai VPC với public/private subnets
-- **🐳 ECS Container Orchestration:** Quản lý containers với ECS Fargate
-- **🔍 Service Discovery:** Kết nối services thông qua DNS
-- **⚖️ Load Balancing:** Phân phối traffic với Application Load Balancer
-- **🔒 Security:** Bảo mật network với Security Groups và IAM
-- **📊 Monitoring:** Theo dõi hệ thống với CloudWatch
-- **🧹 Resource Management:** Cleanup và cost optimization
-
-## Architecture Overview
-
-{{< workshop-image src="images/ecs-architecture.png" alt="ECS Advanced Networking Architecture" caption="Kiến trúc tổng quan của workshop - từ Internet đến ECS Services qua Load Balancer và Service Discovery" >}}
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Internet                              │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│              Application Load Balancer                      │
-│                 (Public Subnets)                           │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
-┌───────▼──────┐ ┌────▼────┐ ┌──────▼──────┐
-│   Frontend   │ │   API   │ │  Database   │
-│   Service    │ │ Service │ │   Service   │
-│ (ECS Fargate)│ │(ECS     │ │(ECS Fargate)│
-│              │ │Fargate) │ │             │
-└──────────────┘ └─────────┘ └─────────────┘
-       │              │              │
-┌──────▼──────────────▼──────────────▼──────┐
-│           Private Subnets                 │
-│        Service Discovery Network          │
-│         (myapp.local domain)              │
-└───────────────────────────────────────────┘
-```
-
-## Workshop Structure
-
-### 🏗️ [1. Thiết lập VPC và Networking](1-introduction/)
-- Tạo VPC với public/private subnets
-- Cấu hình Internet Gateway và NAT Gateway
-- Thiết lập Route Tables và Security Groups
-
-### 🛠️ [2. Chuẩn bị môi trường](2-prerequisites/)
-- Kiểm tra prerequisites và tools
-- Cấu hình AWS CLI và permissions
-- Setup working environment
-
-### 🐳 [3. Tạo ECS Cluster và Services](3-cluster-setup/)
-- Khởi tạo ECS Cluster với Fargate
-- Deploy containerized applications
-- Cấu hình service scaling và health checks
-
-### 🔍 [4. Triển khai Service Discovery](4-service-discovery/)
-- Thiết lập AWS Cloud Map
-- Cấu hình private DNS namespace
-- Kết nối services qua DNS names
-
-### ⚖️ [5. Cấu hình Load Balancing](5-load-balancing/)
-- Tạo Application Load Balancer
-- Thiết lập Target Groups và Health Checks
-- Cấu hình path-based routing
-
-### 🔒 [6. Security và Network Policies](6-security/)
-- Tăng cường Security Groups
-- Quản lý secrets với AWS Secrets Manager
-- Thiết lập VPC Flow Logs và monitoring
-
-### 📊 [7. Monitoring và Logging](7-monitoring/)
-- Cấu hình CloudWatch Logs và Metrics
-- Tạo Dashboards và Alarms
-- Thiết lập automated monitoring
-
-### 🧹 [8. Cleanup Resources](8-cleanup/)
-- Xóa tất cả resources để tránh chi phí
-- Best practices cho resource management
-- Cost optimization tips
-
-## Prerequisites
-
-### Kiến thức cần có:
-- ✅ Hiểu biết cơ bản về AWS
-- ✅ Kinh nghiệm với command line
-- ✅ Khái niệm về containers và Docker
-- ✅ Networking cơ bản (IP, subnets, routing)
-
-### Tools cần thiết:
-- ✅ AWS CLI đã cấu hình
-- ✅ Quyền truy cập AWS account với admin permissions
-- ✅ Terminal/Command prompt
-- ✅ Text editor (VS Code, nano, vim)
-
-### Kiểm tra Prerequisites:
-
-```bash
-# Kiểm tra AWS CLI
-aws --version
-aws sts get-caller-identity
-
-# Kiểm tra permissions
-aws iam get-user
-aws ec2 describe-regions --region us-east-1
-```
-
-## Estimated Costs
-
-Workshop này sử dụng các AWS services có tính phí:
-
-| Service | Estimated Cost | Duration |
-|---------|----------------|----------|
-| ECS Fargate | $0.50-1.00/hour | 3-4 hours |
-| Application Load Balancer | $0.025/hour | 3-4 hours |
-| NAT Gateway | $0.045/hour | 3-4 hours |
-| VPC Flow Logs | $0.10/GB | Minimal |
-| CloudWatch Logs | $0.50/GB | Minimal |
-| **Total Estimated** | **$2-5** | **Complete Workshop** |
-
-{{< alert type="warning" title="Quan trọng" >}}
-Nhớ chạy cleanup script ở cuối workshop để tránh chi phí tiếp tục!
-{{< /alert >}}
-
-## Workshop Timeline
-
-| Phase | Duration | Description |
-|-------|----------|-------------|
-| Setup | 30 mins | VPC và networking foundation |
-| Core Services | 60 mins | ECS cluster và services |
-| Advanced Features | 90 mins | Service discovery, load balancing, security |
-| Monitoring | 45 mins | Logging và monitoring setup |
-| Cleanup | 15 mins | Resource cleanup |
-| **Total** | **4 hours** | **Complete workshop** |
-
-## Getting Started
-
-### Bước 1: Clone Workshop Materials
-```bash
-# Tạo working directory
-mkdir ~/ecs-workshop
-cd ~/ecs-workshop
-
-# Tạo environment file
-touch workshop-env.sh
-```
-
-### Bước 2: Verify AWS Access
-```bash
-# Test AWS connectivity
-aws sts get-caller-identity
-aws ec2 describe-regions --region us-east-1 --output table
-```
-
-### Bước 3: Set Region
-```bash
-# Set your preferred region
-export AWS_DEFAULT_REGION=us-east-1
-aws configure set region us-east-1
-```
-
-### Bước 4: Start Workshop
-Bắt đầu với [Thiết lập VPC và Networking](1-introduction/) →
-
-## Workshop Features
-
-### 🎯 Hands-on Learning
-- Thực hành trực tiếp với AWS Console và CLI
-- Step-by-step instructions với screenshots
-- Troubleshooting guides cho các vấn đề thường gặp
-
-### 🔧 Production-Ready
-- Best practices cho security và performance
-- Scalable architecture patterns
-- Cost optimization techniques
-
-### 📚 Comprehensive Coverage
-- Từ cơ bản đến nâng cao
-- Real-world scenarios
-- Multiple deployment strategies
-
-### 🛠️ Practical Tools
-- Ready-to-use scripts và templates
-- Monitoring và alerting setup
-- Automated cleanup procedures
-
-## Support và Troubleshooting
-
-### Common Issues:
-- **Permission Errors:** Đảm bảo IAM user có đủ permissions
-- **Region Issues:** Kiểm tra region consistency
-- **Resource Limits:** Verify service quotas
-- **Network Connectivity:** Check security group rules
-
-### Getting Help:
-- 📖 Detailed troubleshooting trong mỗi section
-- 🔍 AWS documentation links
-- 💡 Pro tips và best practices
-- ⚠️ Common pitfalls và cách tránh
-
-## Learning Outcomes
-
-Sau khi hoàn thành workshop, bạn sẽ có thể:
-
-- ✅ **Thiết kế** VPC architecture cho production workloads
-- ✅ **Triển khai** containerized applications với ECS
-- ✅ **Cấu hình** service discovery và load balancing
-- ✅ **Bảo mật** network infrastructure với AWS security services
-- ✅ **Monitoring** và troubleshoot distributed systems
-- ✅ **Tối ưu** costs và performance
-- ✅ **Quản lý** infrastructure lifecycle
-
-## Next Steps
-
-Sau workshop này, bạn có thể tiếp tục học:
-
-- **ECS với CI/CD:** Automated deployments
-- **EKS (Kubernetes):** Container orchestration alternatives  
-- **Microservices Patterns:** Advanced architectural patterns
-- **Infrastructure as Code:** Terraform, CloudFormation
-- **Observability:** Advanced monitoring với X-Ray, Prometheus
+{{< workshop-image src="images/workshop-hero.png" alt="ECS Workshop Hero" caption="Xây dựng production-ready ECS infrastructure với best practices" >}}
 
 ---
 
-## 🚀 Ready to Start?
+## 🎯 Mục tiêu Workshop
 
-Hãy bắt đầu hành trình khám phá ECS Advanced Networking!
-
-**[Bắt đầu với VPC Setup →](1-introduction/)**
+{{< alert type="success" title="Bạn sẽ học được" >}}
+🌐 **Thiết lập VPC** với public/private subnets, NAT Gateways  
+🚀 **Triển khai ECS Cluster** với Fargate containers  
+🔍 **Service Discovery** với AWS Cloud Map  
+⚖️ **Load Balancing** với Application Load Balancer  
+🔒 **Security** với IAM roles, Security Groups  
+📊 **Monitoring** với CloudWatch, Container Insights  
+{{< /alert >}}
 
 ---
 
-{{< alert type="tip" title="Pro Tip" >}}
-Bookmark trang này để dễ dàng navigate giữa các sections trong quá trình làm workshop!
+## 📋 Kiến trúc tổng quan
+
+{{< workshop-image src="images/architecture-complete.png" alt="Complete Architecture" caption="Kiến trúc hoàn chỉnh của hệ thống ECS chúng ta sẽ xây dựng" >}}
+
+### Các thành phần chính:
+
+**🌐 Networking Layer**
+- VPC với CIDR 10.0.0.0/16
+- 4 Subnets (2 public, 2 private) across 2 AZs
+- Internet Gateway và NAT Gateways
+- Route Tables và Security Groups
+
+**🚀 Container Layer**
+- ECS Cluster với Fargate launch type
+- Multiple services (Frontend, Backend)
+- Task Definitions với best practices
+- Auto Scaling capabilities
+
+**🔍 Service Discovery**
+- AWS Cloud Map private DNS namespace
+- Service-to-service communication
+- Health checks và service registration
+
+**⚖️ Load Balancing**
+- Application Load Balancer
+- Target Groups với health checks
+- Listener rules cho traffic routing
+
+**🔒 Security & Monitoring**
+- IAM roles với least privilege
+- CloudWatch Logs và Metrics
+- VPC Flow Logs
+- Container Insights
+
+---
+
+## ⏱️ Thông tin Workshop
+
+{{< alert type="info" title="Workshop Details" >}}
+📅 **Thời gian:** 2-3 giờ  
+📊 **Độ khó:** Trung bình  
+💰 **Chi phí:** ~$5-10 USD  
+🌍 **Region:** us-east-1 (khuyến nghị)  
 {{< /alert >}}
+
+---
+
+## 🛠️ Yêu cầu trước khi bắt đầu
+
+{{< alert type="warning" title="Prerequisites" >}}
+✅ **AWS Account** với quyền Administrator  
+✅ **AWS CLI** đã cài đặt và cấu hình  
+✅ **Basic knowledge** về AWS, containers  
+✅ **Terminal/Command line** experience  
+{{< /alert >}}
+
+---
+
+## 📚 Nội dung Workshop
+
+### [1. Giới thiệu Workshop](1-introduction/)
+- Tổng quan kiến trúc
+- Yêu cầu và chuẩn bị
+
+### [2. Chuẩn bị môi trường](2-prerequisites/)
+- AWS CLI setup
+- IAM permissions
+- Working directory
+
+### [3. Thiết lập VPC và Networking](3-cluster-setup/)
+- Tạo VPC và Subnets
+- Internet Gateway và NAT Gateways
+- Route Tables và Security Groups
+
+### [4. ECS Cluster và Service Discovery](4-service-discovery/)
+- Tạo ECS Cluster
+- AWS Cloud Map setup
+- Task Definitions và Services
+
+### [5. Load Balancing và ALB](5-load-balancing/)
+- Application Load Balancer
+- Target Groups và Health Checks
+- Listener Rules
+
+### [6. Security và Monitoring](6-security/)
+- IAM Roles và Policies
+- CloudWatch Logs và Metrics
+- VPC Flow Logs
+
+### [7. Advanced Monitoring](7-monitoring/)
+- Container Insights
+- X-Ray Tracing
+- Advanced Alerting
+
+### [8. Cleanup Resources](8-cleanup/)
+- Resource cleanup
+- Cost optimization
+- Best practices
+
+---
+
+## 🚀 Bắt đầu Workshop
+
+Sẵn sàng để bắt đầu hành trình xây dựng ECS infrastructure? 
+
+{{< button href="1-introduction/" >}}Bắt đầu Workshop →{{< /button >}}
+
+---
+
+## 📖 Tài liệu tham khảo
+
+- **AWS ECS Documentation:** [docs.aws.amazon.com/ecs](https://docs.aws.amazon.com/ecs/)
+- **AWS VPC Guide:** [docs.aws.amazon.com/vpc](https://docs.aws.amazon.com/vpc/)
+- **AWS Well-Architected:** [aws.amazon.com/architecture/well-architected](https://aws.amazon.com/architecture/well-architected/)
+
+---
+
+## 💡 Tips cho Workshop
+
+{{< alert type="tip" title="Pro Tips" >}}
+🔖 **Bookmark trang này** - Để dễ dàng quay lại  
+📝 **Ghi chú quan trọng** - Lưu lại các IDs và ARNs  
+⏰ **Theo dõi thời gian** - Mỗi section ~20-30 phút  
+💰 **Monitor costs** - Cleanup ngay sau workshop  
+🤝 **Hỏi đáp** - Đừng ngại hỏi khi gặp khó khăn  
+{{< /alert >}}
+
+---
+
+**Happy Learning! 🎉**

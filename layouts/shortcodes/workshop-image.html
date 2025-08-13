@@ -1,23 +1,101 @@
 {{/* Workshop Image Shortcode */}}
-{{ $src := .Get "src" }}
-{{ $alt := .Get "alt" | default "Workshop Screenshot" }}
-{{ $caption := .Get "caption" }}
-{{ $class := .Get "class" | default "workshop-image" }}
-{{ $width := .Get "width" }}
-{{ $height := .Get "height" }}
-
-<div class="image-container">
-  <img 
-    src="{{ $src | relURL }}" 
-    alt="{{ $alt }}" 
-    class="{{ $class }}"
-    {{ with $width }}width="{{ . }}"{{ end }}
-    {{ with $height }}height="{{ . }}"{{ end }}
-    loading="lazy"
-  />
-  {{ with $caption }}
-  <div class="image-caption">
-    <i class="fas fa-info-circle"></i> {{ . }}
-  </div>
-  {{ end }}
+<div class="workshop-image">
+    <div class="image-container">
+        {{ if .Get "src" }}
+            <div class="image-placeholder">
+                <i class="fas fa-image"></i>
+                <p><strong>🖼️ Architecture Diagram</strong></p>
+                <p><code>{{ .Get "src" }}</code></p>
+                {{ if .Get "alt" }}
+                <p class="alt-text">{{ .Get "alt" }}</p>
+                {{ end }}
+                <small>Thêm diagram tại vị trí này</small>
+            </div>
+        {{ else }}
+            <div class="image-placeholder">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p><strong>⚠️ Missing Image Source</strong></p>
+                <small>Vui lòng thêm src parameter</small>
+            </div>
+        {{ end }}
+    </div>
+    
+    {{ if .Get "caption" }}
+    <div class="image-caption">
+        <i class="fas fa-info-circle"></i>
+        {{ .Get "caption" }}
+    </div>
+    {{ end }}
 </div>
+
+<style>
+.workshop-image {
+    margin: 24px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.image-container {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+}
+
+.image-placeholder {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 40px 20px;
+    text-align: center;
+    color: #6c757d;
+    border: 2px dashed #dee2e6;
+    margin: 16px;
+    border-radius: 6px;
+}
+
+.image-placeholder i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #007bff;
+}
+
+.image-placeholder p {
+    margin: 8px 0;
+}
+
+.image-placeholder code {
+    background: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+}
+
+.alt-text {
+    font-style: italic;
+    color: #495057;
+}
+
+.image-caption {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    padding: 12px 16px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.image-caption i {
+    color: #cce7ff;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .image-placeholder {
+        padding: 24px 16px;
+    }
+    
+    .image-placeholder i {
+        font-size: 36px;
+    }
+}
+</style>

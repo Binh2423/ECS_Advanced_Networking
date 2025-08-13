@@ -1,0 +1,231 @@
+{{/* Enhanced Code Block Shortcode */}}
+<div class="code-block-container">
+    <div class="code-header">
+        <div class="code-info">
+            {{ if .Get "title" }}
+                <span class="code-title">{{ .Get "title" }}</span>
+            {{ end }}
+            {{ if .Get "language" }}
+                <span class="code-language">{{ .Get "language" }}</span>
+            {{ end }}
+        </div>
+        <div class="code-actions">
+            {{ if .Get "file" }}
+                <span class="code-file">
+                    <i class="fas fa-file-code"></i>
+                    {{ .Get "file" }}
+                </span>
+            {{ end }}
+            <button class="copy-button" onclick="copyCode(this)">
+                <i class="fas fa-copy"></i>
+                Copy
+            </button>
+        </div>
+    </div>
+    
+    <div class="code-content">
+        {{ if .Get "description" }}
+        <div class="code-description">
+            <i class="fas fa-info-circle"></i>
+            {{ .Get "description" }}
+        </div>
+        {{ end }}
+        
+        <pre><code class="language-{{ .Get "language" | default "bash" }}">{{ .Inner }}</code></pre>
+        
+        {{ if .Get "output" }}
+        <div class="code-output">
+            <div class="output-header">
+                <i class="fas fa-terminal"></i>
+                Expected Output:
+            </div>
+            <pre><code class="output-content">{{ .Get "output" }}</code></pre>
+        </div>
+        {{ end }}
+    </div>
+</div>
+
+<script>
+function copyCode(button) {
+    const codeBlock = button.closest('.code-block-container').querySelector('pre code');
+    const text = codeBlock.textContent;
+    
+    navigator.clipboard.writeText(text).then(function() {
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        button.classList.add('copied');
+        
+        setTimeout(function() {
+            button.innerHTML = originalText;
+            button.classList.remove('copied');
+        }, 2000);
+    });
+}
+</script>
+
+<style>
+.code-block-container {
+    margin: 20px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: #1e1e1e;
+}
+
+.code-header {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #4a5568;
+}
+
+.code-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.code-title {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.code-language {
+    background: #4a5568;
+    color: #e2e8f0;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.code-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.code-file {
+    color: #a0aec0;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copy-button {
+    background: #4299e1;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.copy-button:hover {
+    background: #3182ce;
+}
+
+.copy-button.copied {
+    background: #38a169;
+}
+
+.code-content {
+    background: #1e1e1e;
+}
+
+.code-description {
+    background: #2d3748;
+    color: #e2e8f0;
+    padding: 12px 16px;
+    border-bottom: 1px solid #4a5568;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.code-description i {
+    color: #4299e1;
+}
+
+.code-content pre {
+    margin: 0;
+    padding: 16px;
+    background: #1e1e1e;
+    overflow-x: auto;
+}
+
+.code-content code {
+    color: #e2e8f0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.code-output {
+    border-top: 1px solid #4a5568;
+    background: #0f1419;
+}
+
+.output-header {
+    background: #2d3748;
+    color: #a0aec0;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.output-content {
+    color: #68d391;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 12px 16px;
+    background: #0f1419;
+}
+
+/* Syntax highlighting for bash */
+.language-bash .token.comment {
+    color: #6a737d;
+}
+
+.language-bash .token.string {
+    color: #79b8ff;
+}
+
+.language-bash .token.variable {
+    color: #ffab70;
+}
+
+.language-bash .token.keyword {
+    color: #f97583;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .code-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .code-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+</style>
