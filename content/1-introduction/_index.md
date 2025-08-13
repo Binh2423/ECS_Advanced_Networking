@@ -10,7 +10,7 @@ pre : " <b> 1. </b> "
 
 ## 🏗️ Kiến trúc tổng quan
 
-![AWS Architecture Overview]({{ "images/aws-architecture.png" | absURL }})
+![AWS Architecture Overview](images/aws-architecture.png)
 
 *Đây là kiến trúc tổng quan của hệ thống ECS Advanced Networking mà chúng ta sẽ xây dựng.*
 

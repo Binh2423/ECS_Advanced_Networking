@@ -11,7 +11,7 @@ Chào mừng bạn đến với workshop về **Amazon ECS Advanced Networking**
 
 ## 🏗️ AWS Architecture Overview
 
-![AWS Architecture Overview]({{ "images/aws-architecture.png" | absURL }})
+![AWS Architecture Overview](images/aws-architecture.png)
 
 *Kiến trúc tổng quan của hệ thống ECS Advanced Networking mà chúng ta sẽ xây dựng trong workshop này.*
 
